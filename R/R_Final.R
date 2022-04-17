@@ -45,17 +45,17 @@ df_Price <- cbind(Date, df_Price)
 #   return(a)
 # }
 
-# cl_outliers2 <- function(x){
-#   quantiles <- quantile( x, c(.01, .99 ), na.rm = T )
-#   x[ x < quantiles[1] ] <- quantiles[1]
-#   x[ x > quantiles[2] ] <- quantiles[2]
-#   x[ x < -0.4 ] <- NA
-#   x[ x > 0.4 ] <- NA
-#   return(x)
-# }
-# 
-# df_return[,-1] <- as.data.frame(apply(df_return[,-1], FUN = cl_outliers2, MARGIN = 2))
-# #about 756 abnormal daily return data will be turned into NA
+cl_outliers2 <- function(x){
+  quantiles <- quantile( x, c(.01, .99 ), na.rm = T )
+  x[ x < quantiles[1] ] <- quantiles[1]
+  x[ x > quantiles[2] ] <- quantiles[2]
+  x[ x < -0.4 ] <- NA
+  x[ x > 0.4 ] <- NA
+  return(x)
+}
+
+df_return[,-1] <- as.data.frame(apply(df_return[,-1], FUN = cl_outliers2, MARGIN = 2))
+#about 756 abnormal daily return data will be turned into NA
 
 #df_MR means the dataframe of market returns
 date2 <- as.data.frame(df_MR$Dates)
@@ -664,7 +664,7 @@ df_ln_Size <- cbind(Dates,data.frame(t(df_ln_Size)))
 colnames(df_ln_Size) <- colnames(df_Size)
 
 # test wither the cross-section mean is 0 now
-apply(df_ln_Size[,-1], 1, mean, na.rm =T)
+# apply(df_ln_Size[,-1], 1, mean, na.rm =T)
 #Standardization: re-scale cross-sectional firm characteristics (PE,OP,INV)
 #(x - mean(x)) / sd(x)
 is.nan.data.frame <- function(x)
@@ -767,7 +767,7 @@ df_18_std_size <-  apply(t(df_18_size[, -1]), MARGIN = 2, scale)
 df_18_std_size <- cbind(Dates,data.frame(t(df_18_std_size)))
 colnames(df_18_std_size) <- colnames(df_18_PR)
 
-apply(df_18_std_size[,-1], 1, mean, na.rm =T)
+# apply(df_18_std_size[,-1], 1, mean, na.rm =T)
 ####df_18_PE####
 hld_PE_calcs <- function(a, b, c, port_number1, port_number2){
   temp <- intersect(c[[port_number2]],b[[port_number1]])
