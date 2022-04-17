@@ -6,18 +6,16 @@ library(xts)
 library(ggplot2)
 library(dplyr)
 library(tidyverse)
-library(magrittr)
-
 
 ####Importing Data####
-df_Price <- read_excel("/Users/runxinlin/Desktop/R/Research report 2022/Data/Price.xlsx")
-df_Size <- read_excel("/Users/runxinlin/Desktop/R/Research report 2022/Data/Size.xlsx")
-df_PE <- read_excel("/Users/runxinlin/Desktop/R/Research report 2022/Data/PE.xlsx")
-df_MR <- read_excel("Data/Indices.xlsx", col_types = c("date", "numeric", "skip", 
-                                                       "skip", "skip", "skip", "skip"))
-df_RF <- read_excel("/Users/runxinlin/Desktop/R/Research report 2022/Data/91days T-Bill rate.xlsx")
-df_EBIT <- read_excel("/Users/runxinlin/Desktop/R/Research report 2022/Data/EBIT.xlsx")
-df_Asset <- read_excel("/Users/runxinlin/Desktop/R/Research report 2022/Data/Asset.xlsx")
+# Please use setwd() to set working directory to where we store data
+df_Price <- read_excel("Price.xlsx")
+df_Size <- read_excel("Size.xlsx")
+df_PE <- read_excel("PE.xlsx")
+df_MR <- read_excel("Indices.xlsx", col_types = c("date", "numeric", "skip", "skip", "skip", "skip", "skip"))
+df_RF <- read_excel("91days T-Bill rate.xlsx")
+df_EBIT <- read_excel("EBIT.xlsx")
+df_Asset <- read_excel("Asset.xlsx")
 
 ####Sorting Data####
 #df_RF means the dataframe of risk-free return
