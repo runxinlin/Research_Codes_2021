@@ -20,7 +20,9 @@ compare the bias of OLS, IV
 ####IC/ICIR####
 Calculate IC/ICIR for FF5-Factor and their corresponding firm characteries
 
-#### Compare CS and TS model
--FF5-Factor
+#### Compare CS and TS Factor Model
+TS Factor Model I (Rf + FF5) # constant factor loadings
+CS Factor Model I (Rz + CS_FF4) # time-varying factor loadings
+CS Factor Model II (Rf + CS_FF5) # constant factor loadings
 
 
