@@ -1,8 +1,14 @@
+
 ---
-title: Empirical Asset Pricing with Individual Stocks on the JSE: Betas versus Characteristics
+title: "Empirical Asset Pricing with Individual Stocks on the JSE: Betas versus Characteristics"
 author: "Runxin Lin (2392284)"
 date: "2021/12/31"
-output: html_document
+output:
+  html_document:
+    toc: yes
+    df_print: paged
+  html_notebook:
+    toc: yes
 ---
 
 ## **Background**
@@ -301,7 +307,7 @@ for (x in 1:Periods) {
 }
 ```
 
-## **Double-Sorted Portfolios**
+## **Grouping**
 
 #### 1. Sort stock returns based on their size from big to small
 
@@ -578,9 +584,9 @@ portfolio_clean %>%
   ggtitle("The evolution of R1 invested in 6 Different Portfolios")
 ```
 
-#### **Two-Way Sorting Procedure**
+## **Two-Way Sorting Procedure**
 
-#### **FF5-Factor**
+## **FF5-Factor**
 
 #### Holding Period
 
@@ -747,7 +753,7 @@ portfolio_clean2 %>%
     show.legend = FALSE) 
 ```
 
-#### **FF3-Factor**
+## **FF3-Factor**
 
 #### Sorting stocks to SMB and HML portfolios
 
@@ -832,7 +838,7 @@ portfolio_clean3 %>%
     show.legend = FALSE)
 ```
 
-#### **Preparing Data to Python**
+## **Preparing Data to Python**
 
 #### 1. Stock returns
 
@@ -843,7 +849,7 @@ df_SR <- df_return
 #### 2. Market excess returns
 
 ```{r}
-df_MR
+# df_MR
 ```
 
 #### 3. FF3-Factor returns
