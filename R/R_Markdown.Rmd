@@ -1,0 +1,991 @@
+---
+title: Empirical Asset Pricing With Individual Stocks on the JSE: Betas versus Characteristics
+author: "Runxin Lin (2392284)"
+date: "2021/12/31"
+output: html_document
+---
+
+## **Background**
+
+#### Purpose: The study adopts the instrumental variables (IV) approach to mitigate the inherent errors-in-variables bias in Fama-MacBeth (FM, 1973) regression while allowing the use of individual stocks as test assets to avoid the shortcomings of using portfolios. Further, this study compares the explanatory power of cross-sectional (CS) factors and time-series (TS) factors on asset expected returns.
+
+#### Context: Portfolios have been widely used as test assets to ease the EIV bias in a two-stage regression. When stocks are sorted into portfolios based on certain characteristics, a strong factor structure is imparted, which may bias regression-based approaches to identifying factors that are actually unrewarded. Additionally, prespecified characteristics may be better proxies for true factor loadings since estimated betas contain measurement errors, and slope coefficients on characteristics may reflect the underlying factor premiums.
+
+#### Methods: The CS regression of FM is revised using the IV approach, in which the core is to estimate explanatory and instrumental betas from a disjoint data sample, so that measurement errors are not cross-sectionally correlated. Moreover, the CS regression is also used in constructing CS factors corresponding to the TS factors of Fama and French (2015).
+
+#### Results: The results show that none of the factors under the CAPM, the Fama-French three- and five-factor models are priced, while the slope coefficients of corresponding characteristics are statistically significant. In addition, characteristics are more suitable proxies for true factor loadings and superior predictors of future returns than estimated betas. Furthermore, CS factors as optimized by the FM OLS regression provide a better description of average returns on test assets than TS factors.
+
+#### The html document will highlight a step by step raw process of how we came about to our preliminary results. The document starts off with the packages we required to execute our codes; it then goes on to highlight how companies were sorted (Big or Small); how various monetary periods were defined (expansionary of restrictive) all the way to our data visualisations. The research looked at 458 companies from the JSE and the data was primarily extracted from the Bloomberg terminal and the South African Reserve Bank.
+
+#### 1. Clearing the global environment.
+
+```{r}
+rm(list=ls())
+```
+
+#### 2. Importing Required Packages
+
+```{r}
+# install.packages("readxl")
+# install.packages("dplyr")
+# install.packages("tidyverse")
+# install.packages("ggplot2")
+# install.packages("xts")
+```
+
+#### 3. Loading Required Packages
+
+```{r message=FALSE, warning=FALSE}
+library(readxl)
+library(xts)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+```
+
+## **Importing Data**
+
+#### The sample period used in this study spans from Jan 2000 to Dec 2019 (240 months). A total of 819 distinct stocks entered the sample at different points in time during this sample period and the sample comprises 378 stocks per year on average. Daily data of stock price, market cap, market return, book-to-market ratio, price-to-earnings ratio, operating profitability and change of total asset for listed companies on the JSE are obtained from the Bloomberg terminal at Wits Lab, while the risk-free is collected from the South African Reserve Bank. The 91-day Treasury-bill (T-bill) return rate was obtained by the South African Reserve Bank and used as a proxy for the risk-free rate. Because the 91-day T-bill's return was an annualized return, it is geometrically divided into daily returns. In addition, J203T was obtained from the Bloomberg terminal and used to represent the return of the benchmark market.
+
+#### df.Price included the daily stock price of listed companies in the sample.
+
+```{r message=FALSE, warning=FALSE}
+df_Price <- read_excel("Price.xlsx")
+```
+
+#### df.Size included the daily market capitalization of each company.
+
+```{r}
+df_Size <- read_excel("Size.xlsx")
+```
+
+#### df.PE included the daily PE ratio of each company.
+
+```{r message=FALSE, warning=FALSE}
+df_PE <- read_excel("PE.xlsx")
+```
+
+#### df.EBIT included the daily EBIT value of each company.
+
+```{r message=FALSE, warning=FALSE}
+df_EBIT <- read_excel("EBIT.xlsx")
+```
+
+#### df.EBIT included the daily EBIT value of each company.
+
+```{r message=FALSE, warning=FALSE}
+df_Asset <- read_excel("Asset.xlsx")
+```
+
+#### df.MR included the daily market return (J203T).
+
+```{r}
+df_MR <- read_excel("Indices.xlsx", col_types = c("date", "numeric", "skip", "skip", "skip", "skip", "skip"))
+```
+
+#### df.RF included the daily risk-free return rate, which was downloaded from SA Reserve Bank
+
+```{r message=FALSE, warning=FALSE}
+df_RF <- read_excel("91days T-Bill rate.xlsx")
+```
+
+## **Sorting Data**
+
+#### 1. The 91-day T-bill's returns are annualized, thus they are geometrically divided into daily returns as the others.
+
+```{r message=FALSE, warning=FALSE}
+date1 <- df_RF$Date
+df_RF <- as.numeric(df_RF$Value)
+df_RF <- (1+df_RF/100)^(1/365)-1
+df_RF <- as.data.frame(cbind(Dates=date1,Value=df_RF))
+df_RF$Dates <- as.Date(df_RF$Dates)
+rm(date1)
+```
+
+#### 2. We calculate the monthly compounded return for each company based on their daily price.
+
+```{r message=FALSE, warning=FALSE}
+df_Price <- subset(df_Price, Dates >= "2000-01-01" & Dates <= "2020-01-01")
+Date <- as.data.frame(df_Price[, 1])
+df_Price <- as.data.frame(lapply(df_Price[,-1],as.numeric))
+df_return <- log(df_Price[2:nrow(df_Price),]/df_Price[1:(nrow(df_Price)-1),]) # log return
+# df_return <- (df_Price[2:nrow(df_Price),]-df_Price[1:(nrow(df_Price)-1),])/df_Price[1:(nrow(df_Price)-1),] # simple return
+df_return <- cbind(Dates=Date$Dates[-1],df_return)
+df_return <- df_return[,colSums(is.na(df_return))<nrow(df_return)]
+df_Price <- cbind(Date, df_Price)
+
+
+# cl_outliers1 <- function(c){
+#   b <- boxplot(c, plot = FALSE)
+#   a <- c
+#   a[which(c %in% b$out)] <- NA
+#   #Use the follwoing code to replace outliers with mean
+#   #a[which(c %in% b$out)] <- mean(c[which(! c %in% b$out)],na.rm=TRUE
+#   return(a)
+# }
+
+cl_outliers2 <- function(x){
+  quantiles <- quantile( x, c(.01, .99 ), na.rm = T )
+  x[ x < quantiles[1] ] <- quantiles[1]
+  x[ x > quantiles[2] ] <- quantiles[2]
+  x[ x < -0.4 ] <- NA
+  x[ x > 0.4 ] <- NA
+  return(x)
+}
+
+df_return[,-1] <- as.data.frame(apply(df_return[,-1], FUN = cl_outliers2, MARGIN = 2))
+#about 756 abnormal daily return data will be turned into NA
+```
+
+#### 3. We calculate daily market returns based on the J203T prices
+
+```{r message=FALSE, warning=FALSE}
+date2 <- as.data.frame(df_MR$Dates)
+df_MR <- as.data.frame(lapply(df_MR[,-1],as.numeric))
+df_MR <- as.data.frame(log(df_MR[2:nrow(df_MR),]/df_MR[1:(nrow(df_MR)-1),])) # log return
+# df_MR <- as.data.frame(df_MR[2:nrow(df_MR),]-df_MR[1:(nrow(df_MR)-1),])/df_MR[1:(nrow(df_MR)-1),] # simple return
+df_MR <- cbind(Dates=date2[-1,],df_MR)
+colnames(df_MR) <- c("Dates","MR_RF")
+df_MR <- subset(df_MR, Dates %in% df_return$Dates)
+df_RF <- subset(df_RF, Dates %in% as.Date(df_return$Dates))
+df_MR[,2] <- round(as.numeric(unlist(df_MR$MR_RF))-as.numeric(unlist(df_RF$Value)),4)
+df_return <- cbind(df_MR, df_return[,-1])
+rm(date2)
+```
+
+#### 4. Keep the PE ratios have the same length as stock returns
+
+```{r message=FALSE, warning=FALSE}
+df_PE <- subset(df_PE, Dates %in% df_return$Dates)
+Dates <- df_PE[,1]
+df_PE <- as.data.frame(lapply(df_PE[,-1], as.numeric))
+df_PE <- cbind(Dates, df_PE)
+df_PE <- df_PE[ ,(names(df_PE) %in% names(df_return[,-2]))]
+```
+
+#### 5. Keep the Market Capitalizations have the same length as stock returns
+
+```{r message=FALSE, warning=FALSE}
+df_Size <- subset(df_Size, Dates %in% df_return$Dates)
+df_Size <- as.data.frame(lapply(df_Size[,-1],as.numeric))
+df_Size <- cbind(Dates, df_Size)
+df_Size <- df_Size[ ,(names(df_Size) %in% names(df_return[,-2]))]
+df_Size[df_Size == 0] <- NA # about 131 daily size data will be changed into NA
+```
+
+#### 6. Keep the EBITs have the same length as stock returns
+
+```{r message=FALSE, warning=FALSE}
+Date <- df_EBIT$Dates
+df_EBIT <- as.data.frame(lapply(df_EBIT[,-1],as.numeric))
+df_Asset[df_Asset == 0] <- NA # about 260 daily Asset data will be changed into NA
+df_Asset <- as.data.frame(lapply(df_Asset[,-1],as.numeric))
+```
+
+#### 7. Calculate the EBIT/Asset (ROA) rather than ROE as the indication of operating profitabilty
+
+```{r message=FALSE, warning=FALSE}
+df_OP <- df_EBIT/df_Asset
+df_OP <- cbind(Dates=Date, df_OP)
+df_OP <- subset(df_OP, Dates %in% df_return$Dates)
+df_OP <- df_OP[ ,(names(df_OP) %in% names(df_return[,-2]))]
+```
+
+#### 8. Calculate the rate of asset growth for each stock
+
+```{r message=FALSE, warning=FALSE}
+df_INV <- as.data.frame(log(df_Asset[2:nrow(df_Asset),]/df_Asset[1:(nrow(df_Asset)-1),])) # log rate
+# df_INV <- (df_Asset[2:nrow(df_Asset),]-df_Asset[1:(nrow(df_Asset)-1),])/df_Asset[1:(nrow(df_Asset)-1),] # simple rate
+df_INV <- cbind(Dates=Date[-1],df_INV)
+df_INV <- subset(df_INV, Dates %in% df_return$Dates)
+df_INV <- df_INV[ ,(names(df_INV) %in% names(df_return[,-2]))]
+
+repeat.before = function(x) {   # repeats the last non NA value. Keeps leading NA
+  ind = which(!is.na(x))      # get positions of nonmissing values
+  if(is.na(x[1]))             # if it begins with a missing, add the 
+    ind = c(1,ind)        # first position to the indices
+  rep(x[ind], times = diff(   # repeat the values at these indices
+    c(ind, length(x) + 1) )) # diffing the indices + length yields how often 
+}   
+
+is.nan.data.frame <- function(x)
+  do.call(cbind, lapply(x, is.nan))
+
+df_INV_tmp <- df_INV
+df_INV_tmp[is.na(df_INV_tmp)] <- NaN
+df_INV_tmp[df_INV_tmp==0] <- NA
+df_INV_tmp[,-1] <- lapply(df_INV_tmp[,-1], repeat.before)
+df_INV_tmp <- na.locf(df_INV_tmp, fromLast = T, na.rm = F, maxgap = 252)
+df_INV_tmp[is.nan(df_INV_tmp)] <- NA
+df_INV <- df_INV_tmp
+```
+
+## **Preparing and Align List**
+
+#### 1. Define the length of lookback, gap and holding periods and then divide stock returns into these three list
+
+```{r}
+Len <- nrow(df_return)
+trading_days <- 250 #how many trading days in one year
+Lookback <- trading_days
+Gap <- 0
+Holding <- trading_days
+
+Periods <- trunc((Len-Lookback-Gap)/Holding)
+Periods #This is the total return holding list
+
+lookback_return_list <- vector(mode = "list", length = Periods)
+gap_return_list <- vector(mode = "list", length = Periods)
+holding_return_list <- vector(mode = "list", length = Periods)
+
+for (x in 1:Periods) { 
+  lookback_return_list[[x]] = df_return[(1+(x-1)*Holding):(Lookback+(x-1)*Holding),]
+  gap_return_list[[x]] = df_return[(1+Lookback+(x-1)*Gap):(Lookback+Gap+(x-1)*Gap), ]
+  holding_return_list[[x]] = df_return[(1+Lookback+Gap+(x-1)*Holding):(Lookback+Gap+Holding+(x-1)*Holding), ]
+}
+```
+
+#### 2. Divide stocks based on their size
+
+```{r}
+lookback_size_list <- vector(mode = "list", length = Periods)
+gap_size_list <- vector(mode = "list", length = Periods)
+holding_size_list <- vector(mode = "list", length = Periods)
+
+for (x in 1:Periods) { 
+  lookback_size_list[[x]] = df_Size[(1+((x-1)*Holding)):(Lookback+((x-1)*Holding)), ]
+  gap_size_list[[x]] = df_Size[(1+Lookback+(x-1)*Gap):(Lookback+Gap+(x-1)*Gap), ]
+  holding_size_list[[x]] = df_Size[(1+Lookback+Gap+(x-1)*Holding):(Lookback+Gap+Holding+(x-1)*Holding), ]
+}
+```
+
+#### 3. Divide those comopanies based on their PE
+
+```{r}
+lookback_PE_list <- vector(mode = "list", length = Periods)
+gap_PE_list <- vector(mode = "list", length = Periods)
+holding_PE_list <- vector(mode = "list", length = Periods)
+
+for (x in 1:Periods) { 
+  lookback_PE_list[[x]] = df_PE[(1+((x-1)*Holding)):(Lookback+((x-1)*Holding)), ]
+  gap_PE_list[[x]] = df_PE[(1+Lookback+(x-1)*Gap):(Lookback+Gap+(x-1)*Gap), ]
+  holding_PE_list[[x]] = df_PE[(1+Lookback+Gap+(x-1)*Holding):(Lookback+Gap+Holding+(x-1)*Holding), ]
+}
+```
+
+#### 4. Divide those comopanies based on their OP
+
+```{r}
+lookback_OP_list <- vector(mode = "list", length = Periods)
+gap_OP_list <- vector(mode = "list", length = Periods)
+holding_OP_list <- vector(mode = "list", length = Periods)
+
+for (x in 1:Periods) { 
+  lookback_OP_list[[x]] = df_OP[(1+((x-1)*Holding)):(Lookback+((x-1)*Holding)), ]
+  gap_OP_list[[x]] = df_OP[(1+Lookback+(x-1)*Gap):(Lookback+Gap+(x-1)*Gap), ]
+  holding_OP_list[[x]] = df_OP[(1+Lookback+Gap+(x-1)*Holding):(Lookback+Gap+Holding+(x-1)*Holding), ]
+}
+```
+
+#### 5. Divide those comopanies based on their INV (investment growth rate)
+
+```{r}
+lookback_INV_list <- vector(mode = "list", length = Periods)
+gap_INV_list <- vector(mode = "list", length = Periods)
+holding_INV_list <- vector(mode = "list", length = Periods)
+
+for (x in 1:Periods) { 
+  lookback_INV_list[[x]] = df_INV[(1+((x-1)*Holding)):(Lookback+((x-1)*Holding)), ]
+  gap_INV_list[[x]] = df_INV[(1+Lookback+(x-1)*Gap):(Lookback+Gap+(x-1)*Gap), ]
+  holding_INV_list[[x]] = df_INV[(1+Lookback+Gap+(x-1)*Holding):(Lookback+Gap+Holding+(x-1)*Holding), ]
+}
+```
+
+## **Double-Sorted Portfolios**
+
+#### 1. Sort stock returns based on their size from big to small
+
+```{r}
+SMB <- vector(mode = "list", length = Periods)
+
+SMB <- lapply(lookback_size_list, function(x){
+  
+  size_mean <- sapply(x[-1], function(y){
+    ans <- mean(unlist(y), na.rm = T)
+    names(ans) <- names(y)
+    return(ans)
+  })
+  
+  rank_size <- rank(size_mean, na.last = NA) 
+  # na.last for controlling the treatment of NAs. If TRUE, missing values. 
+  #in the data are put last; if FALSE, they are put first; if NA, they are removed;
+  #if "keep" they are kept with rank NA.
+  
+  number_of_portfolios = 2
+  N <- length(rank_size)
+  quantile = trunc(N/number_of_portfolios)
+  
+  return(list(Big=names(rank_size)[rank_size][1:quantile],
+              Small=names(rank_size)[rank_size][(quantile+1):N]))
+})
+```
+
+#### 2. Sort stock returns based on their PE from high to low
+
+```{r}
+HML <- vector(mode = "list", length = Periods)
+
+HML <- lapply(lookback_PE_list, function(x){
+  
+  PE_mean <- sapply(x[-1], function(y){
+    ans <- mean(unlist(y), na.rm = T)
+    names(ans) <- names(y)
+    return(ans)
+  })
+  
+  rank_PE <- rank(PE_mean, na.last = NA) 
+  
+  number_of_portfolios = 3
+  N <- length(rank_PE)
+  quantile = trunc(N/number_of_portfolios)
+  # High PE: growth; Low PE: value
+  return(list(Growth=names(rank_PE)[rank_PE][1:quantile],
+              Neutral=names(rank_PE)[rank_PE][(quantile+1):(N-quantile)],
+              Value=names(rank_PE)[rank_PE][(N-quantile+1):N]))
+})
+```
+
+#### 3. Sort stock returns based on their momentum from winners to low losers
+
+```{r message=FALSE, warning=FALSE}
+WML <- vector(mode = "list", length = Periods)
+
+Sum_S <- function(s){
+  if (is.na(all(s))) {return(NA)}
+  else if (is.na(all(s))==F) {return(sum(s, na.rm = T))}
+}
+
+WML <- lapply(lookback_return_list, function(x){
+  
+  Return_colsum <- sapply(x[-c(1:2)], function(y){
+    ans <- Sum_S(unlist(y))
+    names(ans) <- names(y)
+    return(ans)
+  })
+  
+  rank_Return <- rank(Return_colsum, na.last = NA) 
+  
+  number_of_portfolios = 3
+  N <- length(rank_Return)
+  quantile = trunc(N/number_of_portfolios)
+  
+  return(list(Winners=names(rank_Return)[rank_Return][1:quantile],
+              Neutral=names(rank_Return)[rank_Return][(quantile+1):(N-quantile)],
+              Losers=names(rank_Return)[rank_Return][(N-quantile+1):N]))
+})
+```
+
+#### 4. Sort stock returns based on their operating profitabiltiy (OP) from robust to weak
+
+```{r}
+RMW <- vector(mode = "list", length = Periods)
+
+RMW <- lapply(lookback_OP_list, function(x){
+  
+  OP_mean <- sapply(x[-1], function(y){
+    ans <- mean(unlist(y), na.rm = T)
+    names(ans) <- names(y)
+    return(ans)
+  })
+  
+  rank_OP <- rank(OP_mean, na.last = NA) 
+  
+  number_of_portfolios = 3
+  N <- length(rank_OP)
+  quantile = trunc(N/number_of_portfolios)
+  
+  return(list(Robust=names(rank_OP)[rank_OP][1:quantile],
+              Neutral=names(rank_OP)[rank_OP][(quantile+1):(N-quantile)],
+              Weak=names(rank_OP)[rank_OP][(N-quantile+1):N]))
+})
+```
+
+#### 5. Sort stock returns based on their asset growth rate (INV) from conservative to aggressive
+
+```{r}
+CMA <- vector(mode = "list", length = Periods)
+
+CMA <- lapply(lookback_INV_list, function(x){
+  
+  INV_colsum <- sapply(x[-1], function(y){
+    ans <- mean(unlist(y))
+    names(ans) <- names(y)
+    return(ans)
+  })
+  
+  rank_INV <- rank(INV_colsum, na.last = NA) 
+  
+  number_of_portfolios = 3
+  N <- length(rank_INV)
+  quantile = trunc(N/number_of_portfolios)
+  
+  return(list(Conservative=names(rank_INV)[rank_INV][1:quantile],
+              Neutral=names(rank_INV)[rank_INV][(quantile+1):(N-quantile)],
+              Aggressive=names(rank_INV)[rank_INV][(N-quantile+1):N]))
+})
+```
+
+## **One-Way Sorting Procedure**
+
+#### Holding Period
+
+```{r}
+port_1 <- holding_return_list[[15]][,WML[[15]]$Loser]
+port_1 <- port_1 %>% select_if(~sum(is.na(.)) == 0) %>% select_if(~!all(.==0))
+```
+
+#### 1. Create starting share levels for each portfolio determined by share weights
+
+```{r}
+starting_weights = rep(1,length(port_1))
+```
+
+#### 2. Grow share levels by daily returns over holding period
+
+```{r}
+level_1 <- rbind(starting_weights, port_1 + 1)
+level_1 <- round(rollapply(level_1, FUN = prod, width = 1:(Holding+1), align = "right"),2)
+# level_1 <- round(rollapply(level_1, FUN = prod, width = 1:(Holding+1), align = "right", na.rm=T), 2)
+```
+
+#### 3. Sum portfolio share levels for each day
+
+```{r}
+value_1 <- rowSums(level_1, na.rm = T)
+length(value_1)
+```
+
+#### 4. Calculate portfolio returns
+
+```{r}
+# returns_1 = round(log(value_1[2:length(value_1)]/value_1[1:(length(value_1)-1)]),4) # log return
+returns_1 = round(((value_1[2:length(value_1)] - value_1[1:(length(value_1)-1)])/value_1[1:(length(value_1)-1)]),4) # simple return
+length(returns_1)
+```
+
+#### 5. Generalized Holding Period Calculations
+
+```{r}
+hld_period_calcs1 <- function(a, b, weights =1, port_number){
+  port = a[ ,b[[port_number]]]
+  #delete the companies which the return rate is full with NAs or 0s
+  port <- port %>% select_if(~sum(is.na(.)) == 0) %>% select_if(~!all(.==0))
+  #the above means a[[1]][,unlist(b[[1]][1])]
+  starting_weights = rep(weights, length(port))
+  level = rbind(starting_weights,port+1)
+  level = rollapply(level, FUN = prod, width = 1:(Holding +1), align = "right")
+  value = rowSums(level,na.rm = T)
+  # returns = round(((value[2:length(value)] - value[1:(length(value)-1)])/value[1:(length(value)-1)]),4) # simple return
+  returns = round(log(value[2:length(value)]/value[1:(length(value)-1)]),4) # log return
+  return(returns)
+}
+```
+
+#### 6. Test
+
+```{r}
+test <- Map(hld_period_calcs1, a=holding_return_list, b = RMW, port_number = 2)
+```
+
+#### 7. Use Map function to repeat the procedure of the above test into each holding return list
+
+```{r}
+Lookback <- trading_days
+Periods <- trunc((Len-Lookback-Gap)/Holding)
+Periods
+
+portfolio_df <- data.frame(Dates = df_return$Dates[-c(1:(Lookback+Gap))][1:(Periods*Holding)],
+                           MR_RF = df_return$MR_RF[-c(1:(Lookback+Gap))][1:(Periods*Holding)],
+                           Big = unlist(Map(hld_period_calcs1, holding_return_list, SMB, 
+                                            port_number = 1)),
+                           Small = unlist(Map(hld_period_calcs1, holding_return_list, SMB,
+                                              port_number = 2)),
+                           Growth = unlist(Map(hld_period_calcs1, holding_return_list, HML,
+                                               port_number = 1)),
+                           Value = unlist(Map(hld_period_calcs1, holding_return_list, HML,
+                                              port_number = 3)),
+                           Winners = unlist(Map(hld_period_calcs1, holding_return_list, WML,
+                                                port_number = 1)),
+                           Losers = unlist(Map(hld_period_calcs1, holding_return_list, WML,
+                                               port_number = 3)),
+                           Robust = unlist(Map(hld_period_calcs1, holding_return_list, RMW,
+                                               port_number = 1)),
+                           Weak = unlist(Map(hld_period_calcs1, holding_return_list, RMW,
+                                             port_number = 3)),
+                           Conservative = unlist(Map(hld_period_calcs1, holding_return_list, CMA,
+                                                     port_number = 1)),
+                           Aggressive = unlist(Map(hld_period_calcs1, holding_return_list, CMA,
+                                                   port_number = 3)))
+
+count_nas <- sapply(portfolio_df, function(x){sum(is.na(x))})
+count_nas
+```
+
+<style>
+  .superlonghtml{
+  width: 900px;
+  height : 400px;
+  overflow-y: scroll;
+  overflow-x: scroll;
+  }
+  .superlonghtml img{
+    max-height: none;;
+  }
+</style>
+
+<div class="superlonghtml">
+
+```{r}
+portfolio_df
+```
+
+</div>
+
+#### 8. Plot the portfolio returns from one-way sorting
+
+```{r}
+# Clean the extreme values from the portfolio returns
+portfolio_clean <- portfolio_df %>% 
+  filter_at(vars(names(.[,2:12])),all_vars(.>-0.2 & .<0.2 & !is.na(.)))
+
+count_nas <- sapply(portfolio_clean, function(x){sum(is.na(x))})
+count_nas
+
+portfolio_clean <- portfolio_clean %>%
+  mutate(WML = round(Winners-Losers,4),
+         Market_Level = rollapply((1+MR_RF), FUN = prod, width=1:nrow(portfolio_clean),align="right"),
+         SMB_Level = rollapply((1+(Small-Big)), FUN = prod, width=1:nrow(portfolio_clean),align="right"),
+         HML_Level = rollapply((1+(Value-Growth)), FUN = prod, width=1:nrow(portfolio_clean),align="right"),
+         WML_Level = rollapply((1+(Winners-Losers)), FUN = prod, width=1:nrow(portfolio_clean),align="right"),
+         RMW_Level = rollapply((1+(Robust-Weak)), FUN = prod, width=1:nrow(portfolio_clean),align="right"),
+         CMA_Level = rollapply((1+(Conservative-Aggressive)), FUN = prod, width=1:nrow(portfolio_clean),align="right"))
+
+portfolio_clean %>%
+  select(Dates, MKT = Market_Level, SMB = SMB_Level, HML = HML_Level, WML = WML_Level, RMW = RMW_Level, CMA = CMA_Level) %>%
+  gather(key = "Strategy", value = "Value", -1) %>%
+  ggplot(aes(x=Dates, y=Value,colour=Strategy))+
+  geom_line(size=1)+
+  theme_bw()+
+  ggtitle("The evolution of R1 invested in 6 Different Portfolios")
+```
+
+#### **Two-Way Sorting Procedure**
+
+#### **FF5-Factor** 
+
+#### Holding Period
+```{r}
+port_2 <- holding_return_list[[1]][,intersect(SMB[[1]][[2]],HML[[1]][[1]])]
+port_2 <- port_2 %>% select_if(~sum(is.na(.)) == 0) %>% select_if(~!all(.==0))
+```
+
+#### 1. Create starting share levels for each portfolio determined by share weights
+```{r}
+starting_weights = rep(1,length(port_2))
+```
+
+#### 2. Grow share levels by daily returns over holding period
+```{r}
+level_2 <- rbind(starting_weights, port_2 + 1)
+level_2 <- round(rollapply(level_2, FUN = prod, width = 1:(Holding+1), align = "right"),2)
+#level_2 <- round(rollapply(level_2, FUN = prod, width = 1:(Holding+1), align = "right", na.rm=T), 2)
+```
+
+#### 3. Sum portfolio share levels for each day
+```{r}
+value_2 <- rowSums(level_2, na.rm = T)
+length(value_2)
+```
+
+#### 4. Calculate portfolio returns 
+```{r}
+returns_2 = round(log(value_2[2:length(value_2)]/value_2[1:(length(value_2)-1)]),4)
+length(returns_2)
+```
+
+#### 5. Generalized Holding Period Calculations
+```{r}
+hld_period_calcs2 <- function(a, b, c, weights =1, port_number1, port_number2){
+  temp <- intersect(c[[port_number2]],b[[port_number1]])
+  port <- a[,temp]
+  # a is holding_period_return, b for HML list, c for SMB list, port_number1 for HML, port_number2 for SMB
+  port <- port %>% select_if(~sum(is.na(.)) == 0) %>% select_if(~!all(.==0))
+  starting_weights = rep(weights, length(port))
+  level = rbind(starting_weights,port+1)
+  level = rollapply(level, FUN = prod, width = 1:(Holding +1), align = "right")
+  value = rowSums(level,na.rm = T)
+  # returns = round(((value[2:length(value)] - value[1:(length(value)-1)])/value[1:(length(value)-1)]),4) # simple return
+  returns = round(log(value[2:length(value)]/value[1:(length(value)-1)]),4) # log return
+  return(returns)
+}
+```
+
+#### 6. Test
+```{r}
+test1 <- data.frame(hld_period_calcs2(a= holding_return_list[[1]],b = HML[[1]], c = SMB[[1]],port_number1=1, port_number2=1))
+test2 <- Map(hld_period_calcs2, a= holding_return_list,b = HML, c = SMB, port_number1=1, port_number2=1)
+```
+
+#### 7. Use Map function to repeat the procedure of the above test into each holding return list
+```{r}
+Lookback <- trading_days
+Periods <- trunc((Len-Lookback-Gap)/Holding)
+Periods
+
+portfolio_df2 <- data.frame(Dates = df_return$Dates[-c(1:(Lookback+Gap))][1:(Periods*Holding)],
+                            MR_RF = df_return$MR_RF[-c(1:(Lookback+Gap))][1:(Periods*Holding)],
+                            B_Value = unlist(Map(hld_period_calcs2, holding_return_list, HML, SMB, 
+                                                 port_number1 = 3, port_number2 = 1)),
+                            B_Neutral_PE = unlist(Map(hld_period_calcs2, holding_return_list, HML, SMB,
+                                                      port_number1 = 2, port_number2 = 1)),
+                            B_Growth = unlist(Map(hld_period_calcs2, holding_return_list, HML, SMB,
+                                                  port_number1 = 1, port_number2 = 1)),
+                            B_Robust = unlist(Map(hld_period_calcs2, holding_return_list, RMW, SMB,
+                                                  port_number1 = 1, port_number2 = 1)),
+                            B_Neutral_OP = unlist(Map(hld_period_calcs2, holding_return_list, RMW, SMB,
+                                                      port_number1 = 2, port_number2 = 1)),
+                            B_Weak = unlist(Map(hld_period_calcs2, holding_return_list, RMW, SMB,
+                                                port_number1 = 3, port_number2 = 1)),
+                            B_Conservative= unlist(Map(hld_period_calcs2, holding_return_list, CMA, SMB,
+                                                       port_number1 = 1, port_number2 = 1)),
+                            B_Neutral_INV = unlist(Map(hld_period_calcs2, holding_return_list, CMA, SMB,
+                                                       port_number1 = 2, port_number2 = 1)),
+                            B_Aggressive = unlist(Map(hld_period_calcs2, holding_return_list, CMA, SMB,
+                                                      port_number1 = 3, port_number2 = 1)),
+                            S_Value = unlist(Map(hld_period_calcs2, holding_return_list, HML, SMB,
+                                                 port_number1 = 3, port_number2 = 2)),
+                            S_Neutral_PE = unlist(Map(hld_period_calcs2, holding_return_list, HML, SMB,
+                                                      port_number1 = 2, port_number2 = 2)),
+                            S_Growth = unlist(Map(hld_period_calcs2, holding_return_list, HML, SMB,
+                                                  port_number1 = 1, port_number2 = 2)),
+                            S_Robust = unlist(Map(hld_period_calcs2, holding_return_list, RMW, SMB,
+                                                  port_number1 = 1, port_number2 = 2)),
+                            S_Neutral_OP = unlist(Map(hld_period_calcs2, holding_return_list, RMW, SMB,
+                                                      port_number1 = 2, port_number2 = 2)),
+                            S_Weak = unlist(Map(hld_period_calcs2, holding_return_list, RMW, SMB,
+                                                port_number1 = 3, port_number2 = 2)),
+                            S_Conservative= unlist(Map(hld_period_calcs2, holding_return_list, CMA, SMB,
+                                                       port_number1 = 1, port_number2 = 2)),
+                            S_Neutral_INV = unlist(Map(hld_period_calcs2, holding_return_list, CMA, SMB,
+                                                       port_number1 = 2, port_number2 = 2)),
+                            S_Aggressive = unlist(Map(hld_period_calcs2, holding_return_list, CMA, SMB,
+                                                      port_number1 = 3, port_number2 = 2))
+)
+
+count_nas <- sapply(portfolio_df2, function(x){sum(is.na(x))})
+count_nas
+```
+
+<div class="superlonghtml">
+
+```{r}
+portfolio_df2
+```
+
+</div>
+
+#### 8. Plot the FF5-Factor portfolio returns 
+```{r}
+portfolio_clean2 <- portfolio_df2 %>% 
+  filter_at(vars(names(.[,2:20])),all_vars(.>-0.2 & .<0.2 & !is.na(.)))
+
+count_nas <- sapply(portfolio_clean2, function(x){sum(is.na(x))})
+count_nas
+
+portfolio_clean2 <- portfolio_clean2 %>%
+  mutate(Market_Level = rollapply((1+MR_RF),FUN = prod, width=1:nrow(portfolio_clean2),align="right"),
+         SMB = round((1/3)*((1/3)*(S_Value+S_Neutral_PE+S_Growth)-
+                       (1/3)*(B_Value+B_Neutral_PE+B_Growth)+
+                       (1/3)*(S_Robust+S_Neutral_OP+S_Growth)-
+                       (1/3)*(B_Robust+B_Neutral_OP+B_Growth)+
+                       (1/3)*(S_Conservative+S_Neutral_INV+S_Aggressive)-
+                       (1/3)*(B_Conservative+B_Neutral_INV+B_Aggressive)),4),
+         HML = round((1/2)*(S_Value+B_Value)-(1/2)*(S_Growth+B_Growth),4),
+         RMW = round((1/2)*(S_Robust+B_Robust)-(1/2)*(S_Weak+B_Weak),4),
+         CMA = round((1/2)*(S_Conservative+B_Conservative)-(1/2)*(S_Aggressive+B_Aggressive),4),
+         SMB_Level = rollapply((1+SMB),
+                               FUN = prod, width=1:nrow(portfolio_clean2),align="right"),
+         HML_Level = rollapply((1+HML),
+                               FUN = prod, width=1:nrow(portfolio_clean2),align="right"),
+         RMW_Level = rollapply((1+RMW),
+                               FUN = prod, width=1:nrow(portfolio_clean2),align="right"),
+         CMA_Level = rollapply((1+CMA),
+                               FUN = prod, width=1:nrow(portfolio_clean2),align="right"))
+
+
+portfolio_clean2 %>%
+  select(Dates, MKT = Market_Level, SMB = SMB_Level, HML = HML_Level, RMW = RMW_Level, CMA = CMA_Level) %>%
+  gather(key = "Strategy", value = "Value", -1) %>%
+  ggplot(aes(x=Dates, y=Value,colour=Strategy))+
+  geom_line(size=1)+
+  theme_bw()+
+  ggtitle("The evolution of R1 invested in five different portfolios")+
+  theme(text = element_text(size = 15),
+        panel.grid.major.y = element_line(color = "grey",
+                                          size = 0.7,
+                                          linetype = 2))+
+  geom_text(
+    data = . %>% filter(Dates == max(Dates)),
+    aes(label = round(Value, 2)),
+    vjust = "outward", hjust = "outward",fontface ="plain", color = "black", size = 4, check_overlap = T,
+    show.legend = FALSE) 
+```
+
+#### **FF3-Factor**
+
+#### Sorting stocks to SMB and HML portfolios
+```{r}
+hld_period_calcs3 <- function(a, b, c, weights =1, port_number1, port_number2){
+  temp <- intersect(c[[port_number2]],b[[port_number1]])
+  port <- a[,temp]
+  # a is holding_period_return, b for HML list, c for SMB list, port_number1 for HML, port_number2 for SMB
+  port <- port %>% select_if(~sum(is.na(.)) == 0) %>% select_if(~!all(.==0))
+  starting_weights = rep(weights, length(port))
+  level = rbind(starting_weights,port+1)
+  level = rollapply(level, FUN = prod, width = 1:(Holding +1), align = "right")
+  value = rowSums(level,na.rm = T)
+  returns = round((value[-1]-value[-length(value)])/value[-length(value)],4) # log return
+  # returns = round(((value[2:length(value)] - value[1:(length(value)-1)])/value[1:(length(value)-1)]),4) # simple return
+  return(returns)
+}
+
+Lookback <- trading_days
+Periods <- trunc((Len-Lookback-Gap)/Holding)
+Periods
+
+portfolio_df3 <- data.frame(Dates = df_return$Dates[-c(1:(Lookback+Gap))][1:(Periods*Holding)],
+                            MR_RF = df_return$MR_RF[-c(1:(Lookback+Gap))][1:(Periods*Holding)],
+                            B_Value = unlist(Map(hld_period_calcs3, holding_return_list, HML, SMB, 
+                                                 port_number1 = 3, port_number2 = 1)),
+                            B_Neutral_PE = unlist(Map(hld_period_calcs3, holding_return_list, HML, SMB,
+                                                      port_number1 = 2, port_number2 = 1)),
+                            B_Growth = unlist(Map(hld_period_calcs3, holding_return_list, HML, SMB,
+                                                  port_number1 = 1, port_number2 = 1)),
+                            S_Value = unlist(Map(hld_period_calcs3, holding_return_list, HML, SMB,
+                                                 port_number1 = 3, port_number2 = 2)),
+                            S_Neutral_PE = unlist(Map(hld_period_calcs3, holding_return_list, HML, SMB,
+                                                      port_number1 = 2, port_number2 = 2)),
+                            S_Growth = unlist(Map(hld_period_calcs3, holding_return_list, HML, SMB,
+                                                  port_number1 = 1, port_number2 = 2))
+)
+
+count_nas <- sapply(portfolio_df3, function(x){sum(is.na(x))})
+count_nas
+```
+
+<div class="superlonghtml">
+
+```{r}
+portfolio_df3
+```
+
+</div>
+
+#### Plot FF3-Factor portfolios
+```{r}
+portfolio_clean3 <- portfolio_df3 %>% 
+  filter_at(vars(names(.[,2:8])),all_vars(.>-0.2 & .<0.2 & !is.na(.)))
+
+count_nas <- sapply(portfolio_clean3, function(x){sum(is.na(x))})
+count_nas
+
+portfolio_clean3 <- portfolio_clean3 %>%
+  mutate(Market_Level = rollapply((1+MR_RF),FUN = prod, width=1:nrow(portfolio_clean3),align="right"),
+         SMB = (1/3)*(S_Value+S_Neutral_PE+S_Growth)-(1/3)*(B_Value+B_Neutral_PE+B_Growth),
+         HML = (1/2)*(S_Value+B_Value)-(1/2)*(S_Growth+B_Growth),
+         SMB_Level = rollapply((1+SMB),
+                               FUN = prod, width=1:nrow(portfolio_clean3),align="right"),
+         HML_Level = rollapply((1+HML),
+                               FUN = prod, width=1:nrow(portfolio_clean3),align="right"))
+
+portfolio_clean3 %>%
+  select(Dates, MKT = Market_Level, SMB = SMB_Level, HML = HML_Level) %>%
+  gather(key = "Strategy", value = "Value", -1) %>%
+  ggplot(aes(x=Dates, y=Value,colour=Strategy))+
+  geom_line(size=1)+
+  theme_bw()+
+  ggtitle("The evolution of R1 invested in three different strategies")+
+  theme(text = element_text(size = 15),
+        panel.grid.major.y = element_line(color = "grey",
+                                          size = 0.7,
+                                          linetype = 2))+
+  geom_text(
+    data = . %>% filter(Dates == max(Dates)),
+    aes(label = round(Value, 2)),
+    vjust = "outward", hjust = "outward",fontface ="plain", color = "black", size = 4, check_overlap = T,
+    show.legend = FALSE)
+```
+
+#### **Preparing Data to Python**
+
+#### 1. Stock returns
+```{r}
+df_SR <- df_return
+```
+
+#### 2. Market excess returns
+```{r}
+df_MR
+```
+
+#### 3. FF3-Factor returns
+```{r}
+df_FF3 <- portfolio_clean3 %>% select(Dates, MR_RF, SMB, HML)
+```
+
+#### 4. Carhart4-Factor returns
+```{r}
+tmp1 <- portfolio_clean3 %>% select(Dates, MR_RF, SMB, HML)
+tmp2 <- portfolio_clean %>% select(Dates,WML)
+df_FF4 <- merge(tmp1,tmp2,by.y = 'Dates')
+```
+
+#### 5. FF5-Factor returns
+```{r}
+df_FF5 <- portfolio_clean2 %>% select(Dates, MR_RF, SMB, HML, RMW, CMA)
+```
+
+#### 6. Standardized Firm characteristisc
+#### Standardization: re-scale time-series firm characteristics (ln_size, PE, OP, INV)
+
+$$(x - mean(x)) / sd(x)$$
+#### 6.1 The standardized natural logarithm of market capitalization
+```{r}
+Dates <- df_Size$Dates
+df_ln_Size <- log(df_Size[,-1])
+df_ln_Size <-  apply(df_ln_Size, MARGIN = 2, scale)
+df_ln_Size <- cbind(Dates,as.data.frame(df_ln_Size))
+colnames(df_ln_Size) <- colnames(df_Size)
+## Test whether it works
+# apply(df_ln_Size[,-1], 2, mean, na.rm =T)
+```
+
+#### 6.2 Time-series standardized PE
+```{r}
+is.nan.data.frame <- function(x)
+  do.call(cbind, lapply(x, is.nan))
+
+df_std_PE <-  apply(df_PE[, -1], 2, scale)
+df_std_PE <- cbind(Dates,as.data.frame(df_std_PE))
+colnames(df_std_PE)<- colnames(df_PE)
+```
+
+#### 6.3 Time-series standardized OP
+```{r}
+df_std_OP <-  apply(df_OP[, -1], 2, scale)
+df_std_OP <- cbind(Dates,data.frame(df_std_OP))
+colnames(df_std_OP)<- colnames(df_OP)
+```
+
+#### 6.4 Time-series standardized INV
+```{r}
+df_std_INV <-  apply(df_INV[, -1], 2, scale)
+df_std_INV <- cbind(Dates,as.data.frame(df_std_INV))
+colnames(df_std_INV)<- colnames(df_INV)
+```
+
+#### 7. Double-sorted portfolio returns (a total of 18 portfolios)
+```{r}
+df_18_PR = portfolio_df2[,-2]
+```
+
+<div class="superlonghtml">
+
+```{r}
+portfolio_df3
+```
+
+</div>
+
+#### 8. Characteristics of 18 double-sorted portfolios
+#### Firm characteristics of these 18 portfolios are calculated by the equal-weighted mean of firm characteristics for individual stocks in each portfolio. Then these firm characteristics are standardized by z-score (0,1)
+```{r}
+hld_chr_calcs <- function(a, b, c, port_number1, port_number2){
+  temp <- intersect(c[[port_number2]],b[[port_number1]])
+  port <- a[,temp]
+  # a is holding_size_list, b is HML list, c is SMB list, port_number1 for HML, port_number2 for SMB
+  # Only select the row that do not have na or full of 0s
+  port <- port %>% select_if(~sum(is.na(.)) == 0) %>% select_if(~!all(.==0))
+  row_mean = rollapply(port, FUN = mean, width = 1:(Holding +1), align = "right",by.column = F)
+  return(row_mean)
+}
+```
+
+#### Test the Function
+```{r}
+test5 <- data.frame(hld_chr_calcs(a= holding_size_list[[1]],b = HML[[1]], c = SMB[[1]],port_number1=1, port_number2=1))
+test6 <- Map(hld_chr_calcs, a= holding_size_list,b = HML, c = SMB, port_number1=1, port_number2=1)
+```
+
+
+#### 8.1 Calculate the log size of these 18 double-sorted portfolios
+```{r}
+Lookback <- trading_days
+Periods <- trunc((Len-Lookback-Gap)/Holding)
+Periods
+
+df_18_size <- data.frame(Dates = df_return$Dates[-c(1:(Lookback+Gap))][1:(Periods*Holding)],
+                         B_Value = unlist(Map(hld_chr_calcs, holding_size_list, HML, SMB, 
+                                              port_number1 = 3, port_number2 = 1)),
+                         B_Neutral_PE = unlist(Map(hld_chr_calcs, holding_size_list, HML, SMB,
+                                                   port_number1 = 2, port_number2 = 1)),
+                         B_Growth = unlist(Map(hld_chr_calcs, holding_size_list, HML, SMB,
+                                               port_number1 = 1, port_number2 = 1)),
+                         B_Robust = unlist(Map(hld_chr_calcs, holding_size_list, RMW, SMB,
+                                               port_number1 = 1, port_number2 = 1)),
+                         B_Neutral_OP = unlist(Map(hld_chr_calcs, holding_size_list, RMW, SMB,
+                                                   port_number1 = 2, port_number2 = 1)),
+                         B_Weak = unlist(Map(hld_chr_calcs, holding_size_list, RMW, SMB,
+                                             port_number1 = 3, port_number2 = 1)),
+                         B_Conservative= unlist(Map(hld_chr_calcs, holding_size_list, CMA, SMB,
+                                                    port_number1 = 1, port_number2 = 1)),
+                         B_Neutral_INV = unlist(Map(hld_chr_calcs, holding_size_list, CMA, SMB,
+                                                    port_number1 = 2, port_number2 = 1)),
+                         B_Aggressive = unlist(Map(hld_chr_calcs, holding_size_list, CMA, SMB,
+                                                   port_number1 = 3, port_number2 = 1)),
+                         S_Value = unlist(Map(hld_chr_calcs, holding_size_list, HML, SMB,
+                                              port_number1 = 3, port_number2 = 2)),
+                         S_Neutral_PE = unlist(Map(hld_chr_calcs, holding_size_list, HML, SMB,
+                                                   port_number1 = 2, port_number2 = 2)),
+                         S_Growth = unlist(Map(hld_chr_calcs, holding_size_list, HML, SMB,
+                                               port_number1 = 1, port_number2 = 2)),
+                         S_Robust = unlist(Map(hld_chr_calcs, holding_size_list, RMW, SMB,
+                                               port_number1 = 1, port_number2 = 2)),
+                         S_Neutral_OP = unlist(Map(hld_chr_calcs, holding_size_list, RMW, SMB,
+                                                   port_number1 = 2, port_number2 = 2)),
+                         S_Weak = unlist(Map(hld_chr_calcs, holding_size_list, RMW, SMB,
+                                             port_number1 = 3, port_number2 = 2)),
+                         S_Conservative= unlist(Map(hld_chr_calcs, holding_size_list, CMA, SMB,
+                                                    port_number1 = 1, port_number2 = 2)),
+                         S_Neutral_INV = unlist(Map(hld_chr_calcs, holding_size_list, CMA, SMB,
+                                                    port_number1 = 2, port_number2 = 2)),
+                         S_Aggressive = unlist(Map(hld_chr_calcs, holding_size_list, CMA, SMB,
+                                                   port_number1 = 3, port_number2 = 2))
+)
+
+count_nas <- sapply(df_18_size, function(x){sum(is.na(x))})
+count_nas
+```
+#### Standardized the log size of 18 portfolios
+```{r}
+Dates <- df_18_PR$Dates
+### cross-sectional z-sores for the size of 18 standard portfolios
+df_18_std_size <-  apply(t(df_18_size[, -1]), MARGIN = 2, scale)
+df_18_std_size <- cbind(Dates,data.frame(t(df_18_std_size)))
+colnames(df_18_std_size) <- colnames(df_18_PR)
+# apply(df_18_std_size[,-1], 1, mean, na.rm =T)
+```
+
+
+
+

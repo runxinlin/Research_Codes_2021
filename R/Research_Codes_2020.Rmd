@@ -1,0 +1,1034 @@
+---
+title: The effect of monetary policy on long-run stock price reversals in the Johannesburg 
+  Stock Exchange
+author: "Runxin Lin (2392284) and Rollins Ayaya (1105172)"
+date: "2020/10/16"
+output: html_document
+---
+
+## **Background**
+
+#### This html document highlights how we approached our codes to acquire the results for our research. The aim of the research was to examine the effect that the monetary policy has on long-run share reversals in the Johannesburg Stock Exchange. Long-run share reversals is the tendency of firms with poor share performance (losers), over the past five years, eventually outperforming companies with good share performance (winners). The paper is a close replica of a US study previously done by Garcia-Feijoo and Jensen (2014). They examined long-run reversals of monthly returns between 1963 – 2010 from the NYSE, AMEX and NASDAQ stock exchange platforms. South African authors such as Page and Way (1992) and Britten, Page and Auret (2013) have found that the reversal phenomenon was present in the JSE however, they did not highlight the monetary policy being one of the factors causing the phenomenon. There are two monetary environments, known as expansionary and restrictive. An expansionary environment is when a central bank lowers the interest rates in order to stimulate growth in a country’s economy. Lower interests encourage an increase in consumer and firm spending. Whether or not to expand operations etc. Restrictive conditions occur when the central bank increases the interest rates. This could cause a decrease in money supply and combat inflation.
+
+#### The html document will highlight a step by step raw process of how we came about to our preliminary results. The document starts off with the packages we required to execute our codes; it then goes on to highlight how companies were sorted (Big or Small); how various monetary periods were defined (expansionary of restrictive) all the way to our data visualisations. The research looked at 458 companies from the JSE and the data was primarily extracted from the Bloomberg terminal and the South African Reserve Bank.
+
+### The steps of acquiring the packages went as follows.
+
+#### 1. Clearing the global environment.
+```{r}
+rm(list=ls())
+```
+
+#### 2. Importing Packages
+```{r}
+#install.packages("readxl")
+#install.packages("dplyr")
+#install.packages("lubridate")
+#install.packages("tidyr")
+#install.packages("ggplot2")
+#install.packages("stringr")
+#install.packages("reshape")
+#install.packages("xts")
+```
+
+#### 3. Loading packages
+```{r message=FALSE, warning=FALSE}
+library(readxl)
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(ggplot2)
+library(stringr)
+library(reshape)
+library(xts)
+```
+
+## **Importing data**
+
+### The data was extracted from the Bloomberg terminal and the South African Reserve Bank.
+
+#### df.Price included the daily stock price of 458 companies.
+```{r message=FALSE, warning=FALSE}
+df.Price <- read_excel("D:\\桌面\\Research Report\\Data\\Data Excel\\Price.xlsx")
+```
+
+#### df.Size included the daily market value of each company.
+```{r}
+df.Size <- read_excel("D:\\桌面\\Research Report\\Data\\Data Excel\\Mar Cap.xlsx")
+```
+
+#### df.PE included the daily PE ratio of each company.
+```{r message=FALSE, warning=FALSE}
+df.PE <- read_excel("D:\\桌面\\Research Report\\Data\\Data Excel\\PE.xlsx")
+```
+
+#### df.MR is a dataframe of market return(J203T).
+```{r}
+df.MR <- read_excel("D:\\桌面\\Research Report\\Data\\Data Excel\\Indices.xlsx", 
+                    col_types = c("date", "numeric", "skip", 
+                                  "skip", "skip", "skip", "skip"))
+```
+
+#### df.RF is the risk-free rate, which was downloaded from SA Reserve Bank
+```{r message=FALSE, warning=FALSE}
+df.RF <- read_excel("D:\\桌面\\Research Report\\Data\\Data Excel\\91days T-Bill rate.xlsx", 
+                    col_types = c("text", "numeric", "skip", 
+                                  "skip", "skip", "skip", "skip", "skip"))
+```
+
+#### df.DR is the SA Repo rate, which was also downloaded from SA Reserve Bank
+```{r message=FALSE, warning=FALSE}
+df.DR <- read_excel("D:/桌面/Research Report/Data/Data Excel/Repo rate( SA discount rate).xls", 
+                    col_types = c("text", "numeric"))
+```
+
+## **Sorting data**
+
+#### In order to make our dataframe look more concise and shorten the running time, we changed the above daily data to monthly data.
+
+#### Firstly, we calculate the monthly compounded return for each company based on their daily price.
+```{r message=FALSE, warning=FALSE}
+date1 <- as.data.frame(df.Price[,1])
+df.Price <- as.data.frame(lapply(df.Price[,-1],as.numeric))
+df.SR <- log(df.Price[2:nrow(df.Price),]/df.Price[1:(nrow(df.Price)-1),])*100 
+df.SR <- cbind(Dates=date1[-1,],df.SR)
+df.SR <- xts(df.SR[,-1], as.POSIXct(df.SR$Dates, "%Y-%m-%d"))
+df.SR <- as.data.frame(apply.monthly(df.SR,colSums,na.rm=T)[-c(241,242),]) 
+df.SR[df.SR==0] <- NA
+df.SR <- round(df.SR,2)
+```
+
+#### Secondly, we calculate the monthly compounded market return.
+```{r message=FALSE, warning=FALSE}
+date2 <- as.data.frame(df.MR[,1])
+df.MR <- as.data.frame(lapply(df.MR[,-1],as.numeric))
+df.MR <- as.data.frame(log(df.MR[2:nrow(df.MR),]/df.MR[1:(nrow(df.MR)-1),])*100) 
+df.MR <- data.frame(cbind(Dates=date2$Dates[-1],df.MR)) 
+df.MR<- xts(df.MR[,-1], as.POSIXct(df.MR$Dates, "%Y-%m-%d"))
+df.MR <- as.data.frame(apply.monthly(df.MR,colSums,na.rm=T)[-c(241,242),])
+df.MR <- round(df.MR,2)
+names(df.MR)<-"Market Return"
+```
+
+#### Thirdly, we calculated the monthly PE ratio, Market value and Risk free rate and the mean() function was used here.
+```{r message=FALSE, warning=FALSE}
+df.PE <- xts(df.PE[,-1], as.POSIXct(df.PE$Dates, "%Y-%m-%d"))
+df.PE <- as.data.frame(apply.monthly(df.PE,mean,na.rm=T))[-c(241,242,243),]
+
+df.Size <- xts(df.Size[,-1], as.POSIXct(df.Size$Dates, "%Y-%m-%d"))
+df.Size <- as.data.frame(apply.monthly(df.Size,mean,na.rm=T))[-c(241,242),]
+```
+
+#### We changed the yearly risk-free rate to monthly
+```{r message=FALSE, warning=FALSE}
+df.RF <- xts(df.RF[,-1], as.POSIXct(df.RF$Date, "%Y-%m-%d"))
+df.RF <- as.data.frame(apply.monthly(df.RF,mean,na.rm=T)[-c(241,242),])
+df.RF <- round((1+df.RF/100)^(1/12)-1,2)*100
+
+df.MR_RF <- df.MR-df.RF
+rm(date1)
+rm(date2)
+rm(df.Price)
+```
+
+## **Grouping**
+
+#### After sorting the above data, we define the SMB, HML and LMW portfolios separately. Then, we rebalanced every portfolio at the end of May for each year. This was based from the Fama-French (1996) research paper.
+```{r}
+May<- seq(5,233,12)
+Split_Size <- df.Size[May,]
+Date<-rownames(Split_Size)
+Names<-colnames(Split_Size)
+```
+
+#### Firstly, we defined "Big" and "Small" companies at each month "t", the assignment of lables like "B" and "S" were based on companies' size in May and those lables were reassigned yearly.
+```{r}
+Split_Size[Split_Size=="NaN"]<-NA
+rownames(Split_Size)<-NULL
+Split_Size1<-data.frame()
+for(j in 1:dim(Split_Size)[2]){
+  for(i in 1:dim(Split_Size)[1]){
+    if (is.na(Split_Size[i,j])){Split_Size1[i,j]<-NA}
+    else{
+      if (Split_Size[i,j]>=mean(as.numeric(Split_Size[i,]),na.rm = T))
+      {Split_Size1[i,j]<-"B"}
+      else{Split_Size1[i,j]<-"S"}
+    }
+  }
+}
+Split_Size<-Split_Size1
+row.names(Split_Size)<-Date
+colnames(Split_Size)<-Names
+```
+
+#### Secondly, we defined the PE ratio with "High","Medium","Low" based on three different quintile intervals.
+```{r}
+Split_PE <- round(df.PE[May,],2)
+Split_PE[Split_PE=="NaN"]<-NA
+Split_PE1<-data.frame()
+for (j in 1:dim(Split_PE)[2]){
+  for (i in 1:dim(Split_PE)[1]){
+    if(is.na(Split_PE[i,j])){Split_PE1[i,j]<-NA}
+    else{
+      if(Split_PE[i,j]>=quantile(Split_PE[i,],0.7,na.rm = T))
+      {Split_PE1[i,j]<-"H"}
+      else if(Split_PE[i,j]<=quantile(Split_PE[i,],0.4,na.rm = T))
+      {Split_PE1[i,j]<-"L"}
+      else{Split_PE1[i,j]<-"M"}
+    }
+  } 
+}
+Split_PE<-Split_PE1
+row.names(Split_PE)<-Date
+colnames(Split_PE)<-Names
+```
+
+#### Thirdly, we used the sum() function to sum up the stock compounded returns of past four years.
+
+#### The first formation interval was from 2000-04-31 to 2003-04-31, and the interval from 2003-04-31 to 2004-04-31 was excluded to avoid the short-term momentum effect. 
+```{r}
+Split_SR <-data.frame()
+for(j in 1:dim(df.SR)[2]){
+  i<-4
+  h<-1
+  while (i <= dim(df.SR)[1]-55){
+    Split_SR[h,j] <- sum(df.SR[i:i+47,j],na.rm = T)
+    i<-i+12
+    h<-h+1
+  }
+}
+Split_SR[Split_SR==0]<-NA
+```
+
+#### Because the lookback period of our LMW portfolio is from -60 to -12 months, our first holding period started from "2005-05-31".
+
+#### Here, we used the labels of "Winner", "Loser", "P2", "P3", "P4" to define the stock return of each company based on their past four years performance. Those labels were reassigned yearly in May.
+```{r}
+Split_SR1<-data.frame()
+for(j in 1:dim(Split_SR)[2]){
+  for(i in 1:dim(Split_SR)[1]){
+    if(is.na(Split_SR[i,j])){Split_SR1[i,j]<-NA}
+    else{
+      if(Split_SR[i,j]>=quantile(as.numeric(Split_SR[i,]),0.8,na.rm = T)){Split_SR1[i,j]<-"W"}
+      else if(Split_SR[i,j]>=quantile(as.numeric(Split_SR[i,]),0.6,na.rm = T)){Split_SR1[i,j]<-"P2"}
+      else if(Split_SR[i,j]>=quantile(as.numeric(Split_SR[i,]),0.4,na.rm = T)){Split_SR1[i,j]<-"P3"}
+      else if(Split_SR[i,j]>=quantile(as.numeric(Split_SR[i,]),0.2,na.rm = T)){Split_SR1[i,j]<-"P4"}
+      else{Split_SR1[i,j]<-"L"}
+    }
+  }
+}
+```
+
+#### The last two rows of Split_SR were the data of 2019-05-31 and 2020-01-31,which need to be excluded.
+```{r message=FALSE, warning=FALSE}
+Split_SR<-Split_SR1[-c(15,16),]
+colnames(Split_SR)<-colnames(df.SR)
+rownames(Split_SR)<-as.Date("2004-05-31")+years(1:14)
+rm(Split_SR1,Split_Size1,Split_PE1,Names,Date)
+```
+
+#### Before we calculating the portfolio returns, we need to define the holding period for each strategies, which is one year. Here, we rebalanced those portfolios yearly.
+
+#### We used the following codes to define the company size during each holding year and again those labels were rebalanced yearly(every May).
+
+#### The following codes were used to define "B" and "S" for each holding periods based on their market value in May.
+```{r}
+Split_Size1 <- Split_Size
+y<-data.frame()
+for(i in 1:dim(Split_Size)[1]){
+  y<-Split_Size1[(i-1)*12+1,]
+  for(j in 1:11){ 
+    Split_Size1<-rbind(Split_Size1[1:(j+12*(i-1)),],y,Split_Size1[(j+12*(i-1)+1):nrow(Split_Size1),])} 
+}
+Split_Size<-Split_Size1[-c(230:242),]
+Dates <- data.frame(Dates=row.names(df.Size))[5:233,]
+row.names(Split_Size)<-Dates
+```
+
+#### The following codes were used to define "H", "M" and "L" for each holding periods based on their P/E ratio in May.
+```{r}
+Split_PE1 <- Split_PE
+y<-data.frame()
+for(i in 1:dim(Split_PE1)[1]){
+  y<-Split_PE1[(i-1)*12+1,]
+  for(j in 1:11){ 
+    Split_PE1<-rbind(Split_PE1[1:(j+12*(i-1)),],y,Split_PE1[(j+12*(i-1)+1):nrow(Split_PE1),])} 
+}
+Split_PE1<-Split_PE1[-c(230:242),]
+Dates <- data.frame(Dates=row.names(df.Size))[5:233,]
+row.names(Split_PE1)<-Dates
+Split_PE <- Split_PE1
+```
+
+#### The following codes were used to define "L", "W", "P2", "P3" and "P4" for each holding periods based on their performance of past four years.
+```{r}
+Split_SR1 <- Split_SR
+y<-data.frame()
+for(i in 1:dim(Split_SR1)[1]){
+  y<-Split_SR1[(i-1)*12+1,]
+  for(j in 1:11){ 
+    Split_SR1<-rbind(Split_SR1[1:(j+12*(i-1)),],y,Split_SR1[(j+12*(i-1)+1):nrow(Split_SR1),])} 
+}
+Split_SR1<-Split_SR1[-169,]
+Dates <- data.frame(Dates=row.names(df.Size[65:233,]))
+row.names(Split_SR1)<-Dates$Dates
+Split_SR <- Split_SR1
+rm(y,Split_SR1,Split_PE1,Split_Size1)
+```
+
+#### We used the following codes to change the data from a wide dataframe to a long dataframe. In other words, we changed the orientation of the table from vertical to horizontal. We combinded all those data (Size, PE ratio etc) together in the same dataframe (df.all) at the end.
+```{r}
+a<-as.matrix(Split_Size[-c(1:60),])
+dim(a)<-c(169*458,1)
+b<-as.data.frame.table(Split_Size[-c(1:60),])[,-c(3:460)]
+c<-as.matrix(Split_SR)
+dim(c)<-c(169*458,1)
+d<-as.matrix(Split_PE[-c(1:60),])
+dim(d)<-c(169*458,1)
+e<-as.matrix(df.SR[-c(1:64),])[-c(170:176),]
+dim(e)<-c(169*458,1)
+f<-as.matrix(df.Size[-c(1:64),])[-c(170:176),]
+dim(f)<-c(169*458,1) 
+f[f=="NaN"]<-NA
+g<-str_c(a,d,sep = "/")
+df.all <-cbind(b,f,e,a,d,g,c)
+colnames(df.all)<-c("Date","Name","Mar_Cap","Return","SMB","HML","Combined","LMW")
+k <- as.data.frame(df.MR_RF[-c(1:64,234:240),])
+```
+
+## **Building the portfolio returns**
+
+#### Reshape the long dataframe to a wide dataframe.
+```{r}
+x<-group_by(df.all,Date,Combined)
+```
+
+#### We used equal-weighted method to calculate the portfolio return.
+```{r}
+y<-summarise(x,mean=mean(Return,na.rm = T))
+PR <- cast(y,Date~Combined)[,-8]
+```
+
+#### The mean of small size group 
+$$Mean=(S/L+S/H+S/M)/3$$
+```{r}
+SMB1 <- apply(PR[,-c(1:4)],1,mean,na.rm=T)
+Date <- PR[,1]
+PR <- PR[,-1]
+```
+
+#### The mean of Big size group return
+$$Mean = (B/L+B/H+B/M)/3$$
+```{r}
+SMB2 <- apply(PR[,-c(4:6)],1,mean,na.rm=T)
+```
+
+#### And then we used the return of Small size groups minus the return of Big size groups to calculate the SMB portfolio returns.
+```{r}
+SMB <- as.data.frame(SMB1-SMB2)
+```
+
+#### HML1 equals to (S/H+B/H)/2
+```{r}
+HML1 <- apply(PR[,c(1,4)],1,mean,na.rm=T)
+```
+
+#### HML2 equals to (B/L+S/L)/2
+```{r}
+HML2 <- apply(PR[,c(2,5)],1,mean,na.rm=T)
+HML <- as.data.frame(HML1-HML2)
+```
+
+#### Again, we reshaped the monthly returns of LMW portfolio based on date and the labels, which used the groupby() and summarise() functions.
+```{r}
+i<-group_by(df.all,Date,LMW)
+j<-summarise(i,Mean=mean(Return,na.rm = T))
+LW <- cast(j,Date~LMW)[,-7]
+```
+
+#### The portfolio return of LMW was equaled to Loser returns minus Winner returns.
+```{r}
+LMW <- LW$L-LW$W
+df.port_R <- cbind(Date,k,SMB,HML,LMW,LW[,-1])
+colnames(df.port_R)<-c("Date","RM_RF","SMB","HML","LMW","Loser","P2","P3","P4","Winner")
+```
+
+#### Dataframes of "df.port_R" and "PR","LW" are the summarised result of the above processes.
+```{r}
+rm(a,b,c,d,e,f,i,j,h,k,Dates,x,y,Date,g,May,df.MR)
+```
+
+
+<style>
+  .superlonghtml{
+  width: 900px;
+  height : 400px;
+  overflow-y: scroll;
+  overflow-x: scroll;
+  }
+  .superlonghtml img{
+    max-height: none;;
+  }
+</style>
+
+#### The df.all is a data frame which included all the labels of each portfolio. 
+
+<div class="superlonghtml">
+
+```{r}
+df.all
+```
+
+</div>
+
+#### The df.port_R is a data frame which included all the portfolio returns.
+
+<div class="superlonghtml">
+
+```{r}
+df.port_R
+```
+
+</div>
+
+
+## **The Regression Section**
+
+### Table-1: *Mean monthly returns and regression results for past performance portfolios：May 2005 to May 2019*
+
+#### Panel-A: *Mean monthly return for past-performance portfolios*
+
+##### Firstly, we calculated the equally weighted average monthly return in percentages.
+
+##### Here we used t.test() function to exam whether the means of portfolio returns are significantly different from zero.The Null hypothesis is that the mean of the samples are equal to zero.
+
+##### When we do the student t test with t.test() function, the following function P_V(), T_S() and Ave() were used to calculate the P value, t-statistics and averages.
+```{r}
+P_V<-function(i){
+  t.test(df.port_R[,i])[3]
+}
+T_S<-function(j){
+  t.test(df.port_R[,j])[1]
+}
+Ave<-function(h){
+  t.test(df.port_R[,h])[5]
+}
+```
+
+##### The following codes showed us the mean, t-statistics and P-values of 6 different portfolio returns (from Loser to Winner and the LMW portfolio)
+```{r}
+P_Value<-unlist(lapply(5:dim(df.port_R)[2],P_V))
+T_statistic<-unlist(lapply(5:dim(df.port_R)[2],T_S))
+Mean<-unlist(lapply(5:dim(df.port_R)[2],Ave))
+Name<-names(df.port_R[,5:10])
+```
+
+#### Panel-B: *Regression results for explaining Past-performance portfolio returns*
+
+##### We used the following codes to build January dummy variables and combinded it to the df.port_R dataframe.
+```{r message=FALSE, warning=FALSE}
+Date<-df.port_R[,1]
+Jan_Dummy<-if_else(month(df.port_R$Date)==1,1,0)
+Rf <- df.RF[-c(1:64,234:240),]
+df.port_R<-cbind(df.port_R,Jan_Dummy,Rf)
+```
+
+##### In this panel, the OLS method is used to find the coefficient of each factor(portfolio returns and January Dummy)
+
+##### Formula: $$Ri-Rf=Alpha+b1,(RM_RF)+si,SMB+hi,HML+ji,January Dummy+ei$$
+```{r}
+linear_1 <- lm(df.port_R$Loser-Rf~df.port_R$RM_RF+df.port_R$SMB+df.port_R$HML+df.port_R$Jan_Dummy)
+summary(linear_1)
+linear_2 <- lm(df.port_R$P2-Rf~df.port_R$RM_RF+df.port_R$SMB+df.port_R$HML+df.port_R$Jan_Dummy)
+summary(linear_2)
+linear_3 <- lm(df.port_R$P3-Rf~df.port_R$RM_RF+df.port_R$SMB+df.port_R$HML+df.port_R$Jan_Dummy)
+summary(linear_3)
+linear_4 <- lm(df.port_R$P4-Rf~df.port_R$RM_RF+df.port_R$SMB+df.port_R$HML+df.port_R$Jan_Dummy)
+summary(linear_4)
+linear_5 <- lm(df.port_R$Winner-Rf~df.port_R$RM_RF+df.port_R$SMB+df.port_R$HML+df.port_R$Jan_Dummy)
+summary(linear_5)
+linear_6 <- lm(df.port_R$LMW-Rf~df.port_R$RM_RF+df.port_R$SMB+df.port_R$HML+df.port_R$Jan_Dummy)
+summary(linear_6)
+```
+
+### Table-2: *Long-Run reversal and January Returns*
+
+#### Firstly, we substracted the stock returns from the risk-free return 
+```{r}
+df.Ri <- as.data.frame(apply(df.SR,2,function(x){x-df.RF}))[-c(1:64,234:240),]
+colnames(df.Ri)<-colnames(df.SR)
+```
+
+#### Secondly, we built the loser dummy variables. As the following codes show, the stock returns were defined as "1" when it's "Loser" and "0" for the other labels.
+```{r}
+Split_SR1<-data.frame()
+for(i in 1:dim(Split_SR)[1]){
+  for(j in 1:dim(Split_SR)[2]){
+    if(is.na(Split_SR[i,j])){Split_SR1[i,j]<-NA}
+    else{if(as.character(Split_SR[i,j])=="L"){Split_SR1[i,j]<-1}
+      else{Split_SR1[i,j]<-0}
+    }
+  }
+}
+Date<-rownames(Split_SR)
+Name<-colnames(Split_SR)
+rownames(Split_SR1)<-Date
+colnames(Split_SR1)<-Name
+L_Dummy <- as.data.frame(Split_SR1)
+rm(Split_SR1)
+```
+
+#### Thirdly,we built the winner dummy variables. As the following codes show, the stock returns were defined as "1" when it's "Winner" and "0" for the other labels.
+```{r}
+Split_SR2<-data.frame()
+for(i in 1:dim(Split_SR)[1]){
+  for(j in 1:dim(Split_SR)[2]){
+    if(is.na(Split_SR[i,j])){Split_SR2[i,j]<-NA}
+    else{if(as.character(Split_SR[i,j])=="W"){Split_SR2[i,j]<-1}
+      else{Split_SR2[i,j]<-0}
+    }
+  }
+}
+```
+
+#### In order to do the cross-sectional regression at each month 't', we need to transpose the original dataframe and then used the lm() function to do the looping regression. In detail, we ran a regression of stock returns against the loser and winner dummy variables.
+```{r}
+rownames(Split_SR2)<-Date
+colnames(Split_SR2)<-Name
+W_Dummy <- as.data.frame(Split_SR2)
+rm(Split_SR2)
+L_Dummy <- as.data.frame(apply(L_Dummy, 2, function(y){y<-as.numeric(y)}))
+W_Dummy <- as.data.frame(apply(W_Dummy, 2, function(y){y<-as.numeric(y)}))
+T_df.Ri<-as.matrix(t(df.Ri))
+colnames(T_df.Ri)<-Date
+T_L_Dummy<-as.matrix(t(L_Dummy))
+colnames(T_L_Dummy)<-Date
+T_W_Dummy<-as.matrix(t(W_Dummy))
+colnames(T_W_Dummy)<-Date
+```
+
+#### Panel-A: *Full Sample*
+
+##### Fama-Macbeth regression method was used as the following codes shown.
+
+##### We ran the cross-sectional regression to fetch the factor exposure of L_Dummy and W_Dummy variables at each month 't'.
+
+##### Thus, the alphas, beta1 and beta2 should be time series.
+
+##### Calculate alphas/intercepts.
+```{r}
+lm(T_df.Ri[,1]~T_L_Dummy[,1]+T_W_Dummy[,1])
+Alphas <- as.matrix(
+  round(as.numeric
+        (lapply(1:dim(T_df.Ri)[2],
+                function(j){lm <- lm(T_df.Ri[,j]~T_L_Dummy[,j]+T_W_Dummy[,j])$coefficients[1]})),4))
+```
+
+##### Loser Betas, which is the exposure of loser dummy variables.
+```{r}
+L_Betas <- as.matrix(
+  round(as.numeric
+        (lapply(1:dim(T_df.Ri)[2],
+                function(j){lm <- lm(T_df.Ri[,j]~T_L_Dummy[,j]+T_W_Dummy[,j])$coefficients[2]})),4))
+```
+
+##### Winner Betas, which is the exposure of winner dummy variables.
+```{r}
+W_Betas <- as.matrix(
+  round(as.numeric
+        (lapply(1:dim(T_df.Ri)[2],
+                function(j){lm <- lm(T_df.Ri[,j]~T_L_Dummy[,j]+T_W_Dummy[,j])$coefficients[3]})),4))
+```
+
+##### We used the t.test() to test whether the mean of each coefficient is significantly different to 0.
+```{r}
+t.test(Alphas)
+t.test(L_Betas)
+t.test(W_Betas)
+```
+
+#### Panel-B: *January Excluded*
+
+##### We used the following Re_Jan() function to exclude the data of January. 
+```{r}
+Re_Jan<-function(x){
+  x<-subset(x,month(as.Date((rownames(x))))!=1)
+}
+rownames(L_Dummy)<-Date
+rownames(W_Dummy)<-Date
+df.Ri_EJ<-t(Re_Jan(df.Ri))
+L_Dummy_EJ<-t(Re_Jan(L_Dummy))
+W_Dummy_EJ<-t(Re_Jan(W_Dummy))
+```
+
+##### The following steps are similar as above show.
+```{r}
+lm(df.Ri_EJ[,1]~L_Dummy_EJ[,1]+W_Dummy_EJ[,1])
+Alphas_EJ <- as.matrix(
+  round(as.numeric
+        (lapply(1:dim(df.Ri_EJ)[2],
+                function(j){lm <- lm(df.Ri_EJ[,j]~L_Dummy_EJ[,j]+W_Dummy_EJ[,j])$coefficients[1]})),4))
+L_Betas_EJ <-as.matrix(
+  round(as.numeric
+        (lapply(1:dim(df.Ri_EJ)[2],
+                function(j){lm <- lm(df.Ri_EJ[,j]~L_Dummy_EJ[,j]+W_Dummy_EJ[,j])$coefficients[2]})),4))
+W_Betas_EJ <- as.matrix(
+  round(as.numeric
+        (lapply(1:dim(df.Ri_EJ)[2],
+                function(j){lm <- lm(df.Ri_EJ[,j]~L_Dummy_EJ[,j]+W_Dummy_EJ[,j])$coefficients[3]})),4))
+t.test(Alphas_EJ)
+t.test(L_Betas_EJ)
+t.test(W_Betas_EJ)
+```
+
+## Table-3: *LMW returns in expansive and restrictive condition*
+
+#### The Repo rate was used to measure the monetary strigency, which will be assigned to the df.DR dataframe.
+
+#### We showed the LMW portfolio returns in expansive and restrictive environment.
+
+#### Firstly, we change the yearly Repo rate to monthly. In order to determine whether or not that monetary environment is expansive or restrictive, we calculate the changes from time "t" to time "t-1". 
+```{r message=FALSE, warning=FALSE}
+df.DR <- xts(df.DR[,-1], as.POSIXct(df.DR$Date, "%Y-%m-%d"))
+df.DR <- as.data.frame(apply.monthly(df.DR, mean,na.rm=T))
+df.DR <- round((1+df.DR/100)^(1/12)-1,4)*100
+split.DR <- round(df.DR[2:nrow(df.DR),]-df.DR[1:(nrow(df.DR)-1),],4)
+split.DR<- cbind(Date[-1],split.DR)
+```
+
+#### Secondly, we defined a month as "expansive" when there is a negative change at that month. Then we defined a month as "restrictive" when there is a positive change at that month. For those months that didn't have any changes would be defined them as "maintained"
+```{r}
+for(i in 1:dim(split.DR)[1]){
+  if(split.DR[i,2]<0){split.DR[i,2]<-"E"}
+  else if(split.DR[i,2]>0){split.DR[i,2]<-"R"}
+  else{split.DR[i,2]<-"M"}
+}
+```
+
+#### Thirdly, if there is a period of expansion follow by maintained, the maintained period was considered as expansive. If there is a period of restriction follow by maintained, the maintained period was considered as restrictive.
+```{r}
+for(i in 2:dim(split.DR)[1]){
+  if (split.DR[i,2]=="M"&&split.DR[i-1,2]=="R"){split.DR[i,2]<-"R"}
+  else if (split.DR[i,2]=="M"&&split.DR[i-1,2]=="E"){split.DR[i,2]<-"E"}
+}
+split.DR<-as.data.frame(split.DR[-c(1:40,210:226),])
+split.DR[,1]<-Date
+colnames(split.DR)<-c("Date","Define")
+```
+
+#### "R" means restrictive env in "Split_DR" dataframe, while "E" means expansive env in "Split_DR" dataframe.
+
+#### Furthermore, we used the subset() function to assign those expansive or restirctive period to "Restrictive" and "Expansive" dataframe.
+```{r}
+Restrictive <- subset(split.DR,split.DR[,2]=="R")
+Expansive <- subset(split.DR,split.DR[,2]=="E")
+LMW<-mutate(as.data.frame(Date),LMW=df.port_R$LMW)
+```
+
+#### We used the merge() function to merge the LMW portfolio returns and the two defined monetary conditions.
+```{r}
+Restrictive<-merge(Restrictive,LMW)
+Expansive<-merge(Expansive,LMW)
+```
+
+#### We used the two-sample t.test to test whether the true mean of LMW portfolio return would be statistically different under expansive and restrictive monetary environment. 
+
+#### The Null Hypothesis is that true difference in means is equal to 0 
+```{r}
+t.test(Restrictive$LMW,Expansive$LMW,var.equal = T)
+```
+
+## Table-4: *Long-run reversals and monetary environment*
+
+### Panel_A: *Full sample*
+
+#### Firstly, we built the loser and winner dummy variables and then merged them to expansive and restrictive conditions.
+```{r}
+L_Dummy<-mutate(as.data.frame(Date),L_Dummy)
+W_Dummy<-mutate(as.data.frame(Date),W_Dummy)
+Exp_L <- merge(Expansive[,-3],L_Dummy)
+Res_L <- merge(Restrictive[,-3],L_Dummy)
+Exp_W <- merge(Expansive[,-3],W_Dummy)
+Res_W <- merge(Restrictive[,-3],W_Dummy)
+rownames(df.Ri)<-NULL
+```
+
+#### We also merged the stock returns to expansive and restrictive conditions.
+```{r}
+df.Ri<-mutate(as.data.frame(Date),df.Ri)
+Exp_Ri <- merge(Expansive[,-3],df.Ri)
+Res_Ri <- merge(Restrictive[,-3],df.Ri)
+```
+
+#### Part-A: *Expansive condition*
+
+##### In order to do the cross-sectional regression at each month 't', we need to transpose the original dataframe and then used the lm() function to do the looping regression. In detail, we ran a regression of stock returns against the loser and winner dummy variables.
+```{r}
+Date2<-Exp_Ri[,1]
+Exp_Ri<-as.data.frame(t(Exp_Ri[,-c(1,2)]))
+Exp_L<-as.data.frame(t(Exp_L[,-c(1,2)]))
+Exp_W<-as.data.frame(t(Exp_W[,-c(1,2)]))
+colnames(Exp_Ri)<-Date2
+colnames(Exp_L)<-Date2
+colnames(Exp_W)<-Date2
+```
+
+##### Alphas/Intercepts
+```{r}
+lm(Exp_Ri[,1]~Exp_L[,1]+Exp_W[,1])$coefficient
+Exp_Alphas <- as.matrix(
+  round(as.numeric
+        (lapply(1:dim(Exp_Ri)[2],function(j)
+        {lm <- lm(Exp_Ri[,j]~Exp_L[,j]+Exp_W[,j])$coefficients[1]})),4))
+```
+
+##### Loser betas,which is the exposure of loser dummy variables.
+```{r}
+Exp_L_Betas <- as.matrix(
+  round(as.numeric
+        (lapply(1:dim(Exp_Ri)[2],function(j)
+                {lm <- lm(Exp_Ri[,j]~Exp_L[,j]+Exp_W[,j])$coefficients[2]})),4))
+```
+
+##### winner betas,which is the exposure of winner dummy variables.
+```{r}
+Exp_W_Betas <- as.matrix(
+  round(as.numeric(
+    lapply(1:dim(Exp_Ri)[2],function(j)
+    {lm <- lm(Exp_Ri[,j]~Exp_L[,j]+Exp_W[,j])$coefficients[3]})),4))
+```
+
+##### Use the t.test() to test whether the mean of each coefficient is significantly different to 0.
+```{r}
+t.test(Exp_Alphas)
+t.test(Exp_L_Betas)
+t.test(Exp_W_Betas)
+```
+
+#### Part-B: *Restrictive Condition*
+
+##### For this section, we used similar codes to do the regression, which is under restrictive monetary condition.
+```{r}
+Date3<-Res_Ri[,1]
+Res_Ri<-as.data.frame(t(Res_Ri[,-c(1,2)]))
+Res_L<-as.data.frame(t(Res_L[,-c(1,2)]))
+Res_W<-as.data.frame(t(Res_W[,-c(1,2)]))
+colnames(Res_Ri)<-Date3
+colnames(Res_L)<-Date3
+colnames(Res_W)<-Date3
+```
+
+##### Alphas
+```{r}
+lm(Res_Ri[,1]~Res_L[,1]+Res_W[,1])
+Res_Alphas <- as.matrix(
+  round(as.numeric(
+    lapply(1:dim(Res_Ri)[2],function(j)
+    {lm<-lm(Res_Ri[,j]~Res_L[,j]+Res_W[,j])$coefficients[1]})),4))
+```
+
+##### Loser betas
+```{r}
+Res_L_Betas <- as.matrix(
+  round(as.numeric(
+    lapply(1:dim(Res_Ri)[2],function(j)
+           {lm<-lm(Res_Ri[,j]~Res_L[,j]+Res_W[,j])$coefficients[2]})),4))
+```
+
+##### Winner Betas
+```{r}
+Res_W_Betas <- as.matrix(
+  round(as.numeric(
+    lapply(1:dim(Res_Ri)[2],function(j)
+    {lm<-lm(Res_Ri[,j]~Res_L[,j]+Res_W[,j])$coefficients[3]})),4))
+```
+
+##### We used the t.test() to test whether the mean of each coefficient is significantly different to 0.
+```{r}
+t.test(Res_Alphas)
+t.test(Res_L_Betas)
+t.test(Res_W_Betas)
+```
+
+### Panel-B: *January excluded*
+
+#### Part-A: *Expansive environment*
+
+##### The only difference between this section and the above is that the January data was excluded.
+```{r}
+Exp_Ri<-t(Re_Jan(t(Exp_Ri)))
+Exp_L<-t(Re_Jan(t(Exp_L)))
+Exp_W<-t(Re_Jan(t(Exp_W)))
+```
+
+##### Alphas
+```{r}
+lm(Exp_Ri[,1]~Exp_L[,1]+Exp_W[,1])$coefficient
+Exp_Alphas <- as.matrix(
+  round(as.numeric
+        (lapply(1:dim(Exp_Ri)[2],function(j)
+        {lm <- lm(Exp_Ri[,j]~Exp_L[,j]+Exp_W[,j])$coefficients[1]})),4))
+```
+
+##### loser betas
+```{r}
+Exp_L_Betas <- as.matrix(
+  round(as.numeric
+        (lapply(1:dim(Exp_Ri)[2],function(j)
+        {lm <- lm(Exp_Ri[,j]~Exp_L[,j]+Exp_W[,j])$coefficients[2]})),4))
+```
+
+##### winner betas
+```{r}
+Exp_W_Betas <- as.matrix(
+  round(as.numeric(
+    lapply(1:dim(Exp_Ri)[2],function(j)
+    {lm <- lm(Exp_Ri[,j]~Exp_L[,j]+Exp_W[,j])$coefficients[3]})),4))
+```
+
+##### t.test()
+```{r}
+t.test(Exp_Alphas)
+t.test(Exp_L_Betas)
+t.test(Exp_W_Betas)
+```
+
+#### Part-B: *Restrictive environment*
+
+##### Excluding January
+```{r}
+Res_Ri<-t(Re_Jan(t(Res_Ri)))
+Res_L<-t(Re_Jan(t(Res_L)))
+Res_W<-t(Re_Jan(t(Res_W)))
+```
+
+##### Alphas
+```{r}
+lm(Res_Ri[,1]~Res_L[,1]+Res_W[,1])
+Res_Alphas <- as.matrix(
+  round(as.numeric(
+    lapply(1:dim(Res_Ri)[2],function(j)
+    {lm<-lm(Res_Ri[,j]~Res_L[,j]+Res_W[,j])$coefficients[1]})),4))
+```
+
+##### Loser betas
+```{r}
+Res_L_Betas <- as.matrix(
+  round(as.numeric(
+    lapply(1:dim(Res_Ri)[2],function(j)
+    {lm<-lm(Res_Ri[,j]~Res_L[,j]+Res_W[,j])$coefficients[2]})),4))
+```
+
+##### Winner Betas
+```{r}
+Res_W_Betas <- as.matrix(
+  round(as.numeric(
+    lapply(1:dim(Res_Ri)[2],function(j)
+    {lm<-lm(Res_Ri[,j]~Res_L[,j]+Res_W[,j])$coefficients[3]})),4))
+```
+
+##### t.test()
+```{r}
+t.test(Res_Alphas)
+t.test(Res_L_Betas)
+t.test(Res_W_Betas)
+```
+
+## **Visualisation**
+
+#### We used the level data (to show the growth of a R1 investment in each portfolio).
+
+#### We defined the shadow part under expansive and restrictive conditions.
+```{r}
+Res_Date_End<-Restrictive[,1]
+Res_Date_Start<-as.Date(Res_Date_End) %m-% months(1)
+Exp_Date_End<-Expansive[,1]
+Exp_Date_Start<-as.Date(Exp_Date_End) %m-% months(1)
+```
+
+#### Calculate the return level
+```{r}
+SMB<-df.port_R$SMB/100
+```
+
+#### Compute gross returns
+```{r}
+SMB_R <- 1 + SMB
+```
+
+#### Compute future values
+```{r}
+SMB_F <- cumprod(SMB_R)
+```
+
+#### Plot the evolution of the $1 invested in SMB as a function of time
+```{r}
+plot(SMB_F, type = "l", col = "blue", lwd = 2, ylab = "Rands",xlab = "Months",
+     main = "FV of 1 Rand invested in SMB Portfolio")
+```
+
+
+#### We repeated the above steps for the following codes
+```{r}
+HML<-df.port_R$HML/100
+HML_R <- 1 + HML
+HML_F <- cumprod(HML_R)
+plot(HML_F, type = "l", col = "blue", lwd = 2, ylab = "Rands",xlab = "Months",
+     main = "FV of 1 Rand invested in HML Portfolio")
+
+LMW<-df.port_R$LMW/100
+LMW_R <- 1 + LMW
+LMW_F <- cumprod(LMW_R)
+plot(LMW_F, type = "l", col = "blue", lwd = 2, ylab = "Rands",xlab = "Months",
+     main = "FV of 1 Rand invested in LMW Portfolio")
+
+RM_RF<-df.port_R$RM_RF/100
+RM_RF_R <- 1 + RM_RF
+RM_RF_F <- cumprod(RM_RF_R)
+plot(RM_RF_F, type = "l", col = "blue", lwd = 2, ylab = "Rands",xlab = "Months",
+     main = "FV of 1 Rand invested in RM_RF Portfolio")
+
+Loser<-df.port_R$Loser/100
+Loser_R <- 1 + Loser
+Loser_F <- cumprod(Loser_R)
+plot(Loser_F, type = "l", col = "blue", lwd = 2, ylab = "Rands",xlab = "Months",
+     main = "FV of 1 Rand invested in Loser Portfolio")
+
+Winner<-df.port_R$Winner/100
+Winner_R <- 1 + Winner
+Winner_F <- cumprod(Winner_R)
+plot(Winner_F, type = "l", col = "blue", lwd = 2, ylab = "Rands",xlab = "Months",
+     main = "FV of 1 Rand invested in Winner Portfolio")
+```
+
+#### We used the level data (to show the growth of a R1 investment in each portfolio) and combined them in the same graph using the ggplot() function.
+```{r}
+Portfolio_F <- cbind(RM_RF_F,SMB_F,HML_F,LMW_F)
+Portfolio_F <- as.data.frame(apply(Portfolio_F,2,function(x){x<-as.numeric(x)}))
+Portfolio_F<-cbind(Date,Portfolio_F)
+colnames(Portfolio_F)<-c("Date","RM_RF","SMB","HML","LMW")
+Portfolio_F%>% 
+  gather(key,value,RM_RF,SMB,HML,LMW)%>%
+  ggplot(aes(x=as.Date(Date), y=value, colour=key))+
+  geom_line(size=1.2)+
+  xlab("Date")+
+  ylab("Future Value")+
+  ggtitle("The evolution of the R1 invested in 4 different portfolios")+
+  theme_bw()+
+  geom_hline(aes(yintercept=0),col="grey")+
+  labs(colour="Portfolios")+
+  annotate("rect", fill = "lightblue", alpha = 0.5,
+           xmin = as.Date(Res_Date_Start),xmax = as.Date(Res_Date_End),
+           ymin = -Inf, ymax = Inf)+
+  annotate("rect", fill = "lightpink", alpha = 0.5,
+           xmin = as.Date(Exp_Date_Start),xmax = as.Date(Exp_Date_End),
+           ymin = -Inf, ymax = Inf)+
+  geom_label(aes(x=max(as.Date(Date)),y=2.75,label = "Expansive"),
+             fill = "lightpink",size=2.5,color = 'black')+
+  geom_label(aes(x=max(as.Date(Date)),y=2.50,label = "Restrictive"),
+             fill = "lightblue",size=2.5,color = 'black')
+```
+
+#### Visualized Loser and Winner portfolio return under expansive and restrictive conditions.
+```{r}
+Portfolio_F1 <- cbind(Loser_F,Winner_F,LMW_F)
+Portfolio_F1 <- as.data.frame(apply(Portfolio_F1,2,function(x){x<-as.numeric(x)}))
+Portfolio_F1<-cbind(Date,Portfolio_F1)
+colnames(Portfolio_F1)<-c("Date","Loser","Winner","LMW")
+Portfolio_F1%>% 
+  gather(key,value,Loser,Winner,LMW)%>%
+  ggplot(aes(x=as.Date(Date), y=value, colour=key))+
+  geom_line(size=1.2)+
+  xlab("Date")+
+  ylab("Future Value")+
+  ggtitle("The evolution of the R1 invested in 3 different portfolios")+
+  theme_bw()+
+  geom_hline(aes(yintercept=0),col="grey")+
+  labs(colour="Portfolios")+
+  annotate("rect", fill = "lightblue", alpha = 0.5,
+           xmin = as.Date(Res_Date_Start),xmax = as.Date(Res_Date_End),
+           ymin = -Inf, ymax = Inf)+
+  annotate("rect", fill = "lightpink", alpha = 0.5,
+           xmin = as.Date(Exp_Date_Start),xmax = as.Date(Exp_Date_End),
+           ymin = -Inf, ymax = Inf)+
+  geom_label(aes(x=max(as.Date(Date)),y=2.0,label = "Expansive"),
+             fill = "lightpink",size=2.5,color = 'black')+
+  geom_label(aes(x=max(as.Date(Date)),y=1.75,label = "Restrictive"),
+             fill = "lightblue",size=2.5,color = 'black')
+```
+
+#### Importing the daily data of risk-free rate and J203T price.
+```{r message=FALSE, warning=FALSE}
+df.RF <- read_excel("D:\\桌面\\Research Report\\Data\\Data Excel\\91days T-Bill rate.xlsx", 
+                    col_types = c("text", "numeric", "skip", 
+                                  "skip", "skip", "skip", "skip", "skip"))
+df.MR <- read_excel("D:\\桌面\\Research Report\\Data\\Data Excel\\Indices.xlsx", 
+                    col_types = c("date", "numeric", "skip", 
+                                  "skip", "skip", "skip", "skip"))
+```
+
+#### Visualised the level returns of risk-free, market return and market risk premium,which used the daily data insetead of monthly data.
+```{r warning=FALSE}
+df.MR[-1,3] <- log(df.MR[2:nrow(df.MR),2]/df.MR[1:(nrow(df.MR)-1),2])
+colnames(df.MR)[3]<-c("Cum_R_J203T")
+df.MR<-as.matrix(df.MR)
+
+df.RF[,3] <- ((1+df.RF$Value/100)^(1/365)-1)
+colnames(df.RF)<-c("Dates","Annualize_RF","Daily_RF")
+df.RF<-as.matrix(df.RF)
+
+Portfolio_R<-merge(df.RF,df.MR)
+Portfolio_R[,2:5] <- as.data.frame(apply(Portfolio_R[,-1],2,function(x){x<-as.numeric(x)}))
+Portfolio_R[,6]<-Portfolio_R[,5]-Portfolio_R[,3]
+Portfolio_R[-1,7:9]<-apply(Portfolio_R[-1,c(3,5,6)],2,function(x){cumprod(x+1)})
+colnames(Portfolio_R)[6:9]<-c("MR_RF","RFR","MR","MRP")
+```
+
+#### The Portfplio_R is a data frame which included market return, risk free return and market risk premium.
+
+<div class="superlonghtml">
+
+```{r}
+Portfolio_R
+```
+
+</div>
+
+
+
+```{r message=FALSE, warning=FALSE}
+Portfolio_R %>%
+  gather(key,value, RFR, MR,MRP) %>%
+  ggplot(aes(x=as.Date(Dates), y=value, colour=key)) +
+  geom_line(size=0.8)+
+  xlab("Date")+
+  ylab("Future Value")+
+  ggtitle("The evolution of the R1 invested in 3 different portfolios")+
+  theme_bw()+
+  labs(colour="Portfolios")
+```
+
+#### Visulized the movement of repo rate in South Africa and showed the expansive and restrictive interval.
+```{r}
+Date3<-rownames(df.DR)
+df.DR<-cbind(Date=Date3,df.DR)
+df.DR<-df.DR[-c(1:41,211:227),]
+rownames(df.DR)<-NULL
+ggplot(data=df.DR,aes(x=as.Date(Date),y=Repo))+
+  geom_line(size=1.0,color="red")+
+    xlab("Date")+
+    ylab("Monthly Repo Rate (%)")+
+    theme_bw()+
+    geom_hline(aes(yintercept=0),col="grey")+
+    annotate("rect", fill = "lightblue", alpha = 0.5,
+           xmin = as.Date(Res_Date_Start),xmax = as.Date(Res_Date_End),
+           ymin = -Inf, ymax = Inf)+
+    annotate("rect", fill = "lightpink", alpha = 0.5,
+           xmin = as.Date(Exp_Date_Start),xmax = as.Date(Exp_Date_End),
+           ymin = -Inf, ymax = Inf)+
+    geom_label(aes(x=max(as.Date(Date)-365),y=1.00,label = "Expansive"),
+             fill = "lightpink",size=2.5,color = 'black')+
+    geom_label(aes(x=max(as.Date(Date)-365),y=0.875,label = "Restrictive"),fill = "lightblue",size=2.5,color = 'black')
+```
+
+
