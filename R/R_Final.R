@@ -1,11 +1,11 @@
 rm(list = ls())
 
 ####Load any required libraries####
-library(readxl)
-library(xts)
-library(ggplot2)
-library(dplyr)
-library(tidyverse)
+require(readxl)
+require(xts)
+require(ggplot2)
+require(dplyr)
+require(tidyverse)
 
 ####Importing Data####
 # Please use setwd() to set working directory to where we store data
@@ -267,8 +267,8 @@ WML <- lapply(lookback_return_list, function(x){
 
 ####RMW Portfolio####
 #Stocks with robust and weak operating profitability#
-#robust firms are the top 20% 
-#weak firms are the bottom 20% 
+#robust firms are the top 33% 
+#weak firms are the bottom 33% 
 RMW <- vector(mode = "list", length = Periods)
 
 RMW <- lapply(lookback_OP_list, function(x){
