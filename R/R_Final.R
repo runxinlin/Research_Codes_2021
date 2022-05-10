@@ -190,6 +190,8 @@ for (x in 1:Periods) {
 }
 
 ####SMB Portfolios####
+#Big stocks are top 1/2
+#Small stocks are bottom 1/2
 SMB <- vector(mode = "list", length = Periods)
 
 SMB <- lapply(lookback_size_list, function(x){
@@ -214,6 +216,8 @@ SMB <- lapply(lookback_size_list, function(x){
 })
 
 ####HML Portfolios####
+#Growth stocks are the top 1/3
+#Value stocks are the bottom 1/3
 HML <- vector(mode = "list", length = Periods)
 
 HML <- lapply(lookback_PE_list, function(x){
@@ -237,8 +241,8 @@ HML <- lapply(lookback_PE_list, function(x){
 #### High PE: growth; Low PE: value
 
 ####WML Portfolios####
-#winners are the top 20%
-#losers are the bottom 20%
+#winners are the top 1/3
+#losers are the bottom 1/3
 WML <- vector(mode = "list", length = Periods)
 
 Sum_S <- function(s){
@@ -267,8 +271,8 @@ WML <- lapply(lookback_return_list, function(x){
 
 ####RMW Portfolio####
 #Stocks with robust and weak operating profitability#
-#robust firms are the top 33% 
-#weak firms are the bottom 33% 
+#robust firms are the top 1/3
+#weak firms are the bottom 1/3 
 RMW <- vector(mode = "list", length = Periods)
 
 RMW <- lapply(lookback_OP_list, function(x){
