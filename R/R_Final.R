@@ -1,3 +1,4 @@
+####Clean the enviroment####
 rm(list = ls())
 
 ####Load any required libraries####
@@ -192,27 +193,36 @@ for (x in 1:Periods) {
 ####SMB Portfolios####
 #Big stocks are top 1/2
 #Small stocks are bottom 1/2
+#### Test
+ans <- sapply(lookback_size_list[[1]][,-1], function(x) {mean(unlist(x), na.rm = T)})
+order_ans <- order(unlist(ans[!is.na(ans)]))
+names(order_ans) <- names((ans[!is.na(ans)]))
+tmp <- names(order_ans)[order_ans]
+ans[tmp[1]]
+
+#### Generalized
 SMB <- vector(mode = "list", length = Periods)
 
 SMB <- lapply(lookback_size_list, function(x){
   
-  size_mean <- sapply(x[-1], function(y){
+  size_mean <- sapply(x[,-1], function(y){
     ans <- mean(unlist(y), na.rm = T)
     names(ans) <- names(y)
     return(ans)
   })
   
-  rank_size <- rank(size_mean, na.last = NA) 
+  order_size <- order(unlist(size_mean[!is.na(size_mean)])) # order function will perform on an ascending order
+  names(order_size) <- names(size_mean[!is.na(size_mean)])
   # na.last for controlling the treatment of NAs. If TRUE, missing values. 
   #in the data are put last; if FALSE, they are put first; if NA, they are removed;
-  #if "keep" they are kept with rank NA.
+  #if "keep" they are kept with order NA.
   
   number_of_portfolios = 2
-  N <- length(rank_size)
+  N <- length(order_size)
   quantile = trunc(N/number_of_portfolios)
   
-  return(list(Big=names(rank_size)[rank_size][1:quantile],
-              Small=names(rank_size)[rank_size][(quantile+1):N]))
+  return(list(Small=names(order_size)[order_size][1:quantile],
+              Big=names(order_size)[order_size][(quantile+1):N]))
 })
 
 ####HML Portfolios####
@@ -222,21 +232,22 @@ HML <- vector(mode = "list", length = Periods)
 
 HML <- lapply(lookback_PE_list, function(x){
   
-  PE_mean <- sapply(x[-1], function(y){
+  PE_mean <- sapply(x[,-1], function(y){
     ans <- mean(unlist(y), na.rm = T)
     names(ans) <- names(y)
     return(ans)
   })
   
-  rank_PE <- rank(PE_mean, na.last = NA) 
+  order_PE <- order(unlist(PE_mean[!is.na(PE_mean)])) # order function will perform on an ascending order
+  names(order_PE) <- names(PE_mean[!is.na(PE_mean)])
   
   number_of_portfolios = 3
-  N <- length(rank_PE)
+  N <- length(order_PE)
   quantile = trunc(N/number_of_portfolios)
   
-  return(list(Growth=names(rank_PE)[rank_PE][1:quantile],
-              Neutral=names(rank_PE)[rank_PE][(quantile+1):(N-quantile)],
-              Value=names(rank_PE)[rank_PE][(N-quantile+1):N]))
+  return(list(Value=names(order_PE)[order_PE][1:quantile],
+              Neutral=names(order_PE)[order_PE][(quantile+1):(2*quantile)],
+              Growth=names(order_PE)[order_PE][(2*quantile+1):N]))
 })
 #### High PE: growth; Low PE: value
 
@@ -246,27 +257,28 @@ HML <- lapply(lookback_PE_list, function(x){
 WML <- vector(mode = "list", length = Periods)
 
 Sum_S <- function(s){
-  if (is.na(all(s))) {return(NA)}
-  else if (is.na(all(s))==F) {return(sum(s, na.rm = T))}
+  if (is.na(all(unlist(s)))) {return(NA)}
+  else if (is.na(all(unlist(s)))==F) {return(sum(s, na.rm = T))}
 }
 
 WML <- lapply(lookback_return_list, function(x){
   
-  Return_colsum <- sapply(x[-c(1:2)], function(y){
+  Return_colsum <- sapply(x[,-c(1:2)], function(y){
     ans <- Sum_S(unlist(y))
     names(ans) <- names(y)
     return(ans)
   })
   
-  rank_Return <- rank(Return_colsum, na.last = NA) 
+  order_Return <- order(unlist(Return_colsum[!is.na(Return_colsum)])) # order function will Returnrform on an ascending order
+  names(order_Return) <- names(Return_colsum[!is.na(Return_colsum)])
   
   number_of_portfolios = 3
-  N <- length(rank_Return)
+  N <- length(order_Return)
   quantile = trunc(N/number_of_portfolios)
   
-  return(list(Winners=names(rank_Return)[rank_Return][1:quantile],
-              Neutral=names(rank_Return)[rank_Return][(quantile+1):(N-quantile)],
-              Losers=names(rank_Return)[rank_Return][(N-quantile+1):N]))
+  return(list(Losers=names(order_Return)[order_Return][1:quantile], #low returns
+              Neutral=names(order_Return)[order_Return][(quantile+1):(2*quantile)],
+              Winners=names(order_Return)[order_Return][(2*quantile+1):N])) #high returns
 })
 
 ####RMW Portfolio####
@@ -277,46 +289,54 @@ RMW <- vector(mode = "list", length = Periods)
 
 RMW <- lapply(lookback_OP_list, function(x){
   
-  OP_mean <- sapply(x[-1], function(y){
+  OP_mean <- sapply(x[,-1], function(y){
     ans <- mean(unlist(y), na.rm = T)
     names(ans) <- names(y)
     return(ans)
   })
   
-  rank_OP <- rank(OP_mean, na.last = NA) 
-  
+  order_OP <- order(unlist(OP_mean[!is.na(OP_mean)])) # order function will perform on an ascending order
+  names(order_OP) <- names(OP_mean[!is.na(OP_mean)])
+
   number_of_portfolios = 3
-  N <- length(rank_OP)
+  N <- length(order_OP)
   quantile = trunc(N/number_of_portfolios)
   
-  return(list(Robust=names(rank_OP)[rank_OP][1:quantile],
-              Neutral=names(rank_OP)[rank_OP][(quantile+1):(N-quantile)],
-              Weak=names(rank_OP)[rank_OP][(N-quantile+1):N]))
+  return(list(Weak=names(order_OP)[order_OP][1:quantile], #low profitability (ROA)
+              Neutral=names(order_OP)[order_OP][(quantile+1):(2*quantile)],
+              Robust=names(order_OP)[order_OP][(2*quantile+1):N])) #high profitability (ROA)
 })
 
 ####CMA Portfolio####
 #Stocks of high and low investment firms (conservative minus aggressive)
 #Conservative means firms with lower investment growth rate
 #Aggressive means firms with higher investment growth rate
+ans <- sapply(lookback_INV_list[[1]][,-1], function(x) {mean(unlist(x), na.rm = T)})
+order_ans <- order(unlist(ans[!is.na(ans)]))
+names(order_ans) <- names((ans[!is.na(ans)]))
+tmp <- names(order_ans)[order_ans]
+ans[tmp[1]]
+
 CMA <- vector(mode = "list", length = Periods)
 
 CMA <- lapply(lookback_INV_list, function(x){
   
-  INV_colsum <- sapply(x[-1], function(y){
+  INV_mean <- sapply(x[,-1], function(y){
     ans <- mean(unlist(y))
     names(ans) <- names(y)
     return(ans)
   })
   
-  rank_INV <- rank(INV_colsum, na.last = NA) 
+  order_INV <- order(unlist(INV_mean[!is.na(INV_mean)])) # order function will perform on an ascending order
+  names(order_INV) <- names(INV_mean[!is.na(INV_mean)])
   
   number_of_portfolios = 3
-  N <- length(rank_INV)
+  N <- length(order_INV)
   quantile = trunc(N/number_of_portfolios)
   
-  return(list(Conservative=names(rank_INV)[rank_INV][1:quantile],
-              Neutral=names(rank_INV)[rank_INV][(quantile+1):(N-quantile)],
-              Aggressive=names(rank_INV)[rank_INV][(N-quantile+1):N]))
+  return(list(Conservative=names(order_INV)[order_INV][1:quantile], # low growth rate of asset
+              Neutral=names(order_INV)[order_INV][(quantile+1):(N-quantile)],
+              Aggressive=names(order_INV)[order_INV][(N-quantile+1):N])) # high growth rate of asset
 })
 
 ####One-Way Sorting Procedure####
@@ -400,12 +420,12 @@ count_nas
 ####Plotting our results and running our model####
 ##2019/09 has extreme values, thus we must clean those extreme values.
 portfolio_clean <- portfolio_df %>% 
-  filter_at(vars(names(.[,2:12])),all_vars(.>-0.2 & .<0.2 & !is.na(.)))
+  filter_at(vars(names(.[,2:12])),all_vars(.>-0.4 & .<0.4 & !is.na(.)))
 
 count_nas <- sapply(portfolio_clean, function(x){sum(is.na(x))})
 count_nas
 
-plot1 <- portfolio_clean <- portfolio_clean %>%
+portfolio_clean <- portfolio_clean %>%
   mutate(WML = round(Winners-Losers,4),
          Market_Level = rollapply((1+MR_RF), FUN = prod, width=1:nrow(portfolio_clean),align="right"),
          SMB_Level = rollapply((1+(Small-Big)), FUN = prod, width=1:nrow(portfolio_clean),align="right"),
@@ -414,7 +434,7 @@ plot1 <- portfolio_clean <- portfolio_clean %>%
          RMW_Level = rollapply((1+(Robust-Weak)), FUN = prod, width=1:nrow(portfolio_clean),align="right"),
          CMA_Level = rollapply((1+(Conservative-Aggressive)), FUN = prod, width=1:nrow(portfolio_clean),align="right"))
 
-portfolio_clean %>%
+plot1 <- portfolio_clean %>%
   select(Dates, MKT = Market_Level, SMB = SMB_Level, HML = HML_Level, WML = WML_Level, RMW = RMW_Level, CMA = CMA_Level) %>%
   gather(key = "Strategy", value = "Value", -1) %>%
   ggplot(aes(x=Dates, y=Value,colour=Strategy))+
@@ -422,8 +442,6 @@ portfolio_clean %>%
   theme_bw()+
   ggtitle("The evolution of R1 invested in 6 Different Portfolios")
   
-
-
 ####Two-way Sorting Procedure####
 ####FF-5 Factor####
 ####Holding Period####
@@ -524,7 +542,7 @@ count_nas
 ####Plotting our results and running our model####
 #### We need to clean some extreme values.
 portfolio_clean2 <- portfolio_df2 %>% 
-  filter_at(vars(names(.[,2:20])),all_vars(.>-0.2 & .<0.2 & !is.na(.)))
+  filter_at(vars(names(.[,2:20])),all_vars(.>-0.4 & .<0.4 & !is.na(.)))
 
 count_nas <- sapply(portfolio_clean2, function(x){sum(is.na(x))})
 count_nas
@@ -608,7 +626,7 @@ count_nas
 ####Plotting our results and running our model####
 #### We need to clean some extreme values.
 portfolio_clean3 <- portfolio_df3 %>% 
-  filter_at(vars(names(.[,2:8])),all_vars(.>-0.2 & .<0.2 & !is.na(.)))
+  filter_at(vars(names(.[,2:8])),all_vars(.>-0.4 & .<0.4 & !is.na(.)))
 
 count_nas <- sapply(portfolio_clean3, function(x){sum(is.na(x))})
 count_nas

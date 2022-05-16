@@ -1,13 +1,9 @@
-
 ---
 title: "Empirical Asset Pricing with Individual Stocks on the JSE: Betas versus Characteristics"
 author: "Runxin Lin (2392284)"
 date: "2021/12/31"
 output:
   html_document:
-    toc: yes
-    df_print: paged
-  html_notebook:
     toc: yes
 ---
 
