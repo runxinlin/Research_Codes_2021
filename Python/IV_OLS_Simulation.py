@@ -1,3 +1,24 @@
+
+import pandas as pd
+import numpy as np
+import statsmodels.api as sm
+import random
+from statsmodels.sandbox.regression.gmm import IV2SLS
+from sklearn.linear_model import LinearRegression
+from tqdm import tqdm
+
+random.seed(12345)
+
+ols_model = LinearRegression()
+
+def froll_sum(x): 
+    # Convert daily return to monthly return, use fix_rolling_sum function
+    tmp = []
+    for i in range(int(len(x)/21)): # 21 represents the trading days for one month
+        res = np.sum(x[i*21:(i+1)*21])
+        tmp.append(res)
+    return tmp
+
 """
 Function CAPM_IV_Simulation is applied for automatically running simulation in
 camparing the biases of Fama-MacBeth (1973) regression approach under IV and OLS estimation
@@ -30,28 +51,6 @@ Outputs:
   expost_RMSE_IV: the ex-post RMSE of IV estimation
 """
 
-from ctypes.wintypes import DWORD
-from os import fwalk
-import pandas as pd
-import json
-import numpy as np
-from scipy import stats
-import statsmodels.api as sm
-import matplotlib.pyplot as plt
-from statsmodels.sandbox.regression.gmm import IV2SLS
-from sklearn.linear_model import LinearRegression
-import random
-from datetime import datetime
-
-ols_model = LinearRegression()
-
-def froll_sum(x): 
-    # Convert daily return to monthly return, use fix_rolling_sum function
-    tmp = []
-    for i in range(int(len(x)/21)): # 21 represents the trading days for one month
-        res = np.sum(x[i*21:(i+1)*21])
-        tmp.append(res)
-    return tmp
 
 def CAPM_IV_Simulation(mean_MKT, std_MKT, mean_beta, std_beta, mean_res_sig, std_res_sig, N, T, t, Repetitions):
     # how many days in the simulation data
@@ -73,7 +72,7 @@ def CAPM_IV_Simulation(mean_MKT, std_MKT, mean_beta, std_beta, mean_res_sig, std
     exante_bias_IV = []
     expost_bias_IV = []
 
-    for r in range(Repetitions):
+    for r in tqdm(range(Repetitions)):
         #Step-2: For each day, we randomly draw market excess return from a normal distribution with mean and standard deviation equal to the real mean and standard deviation from the sample data
         sim_MKT_tmp = []
         sim_MKT_tmp.append(np.random.normal(loc = mean_MKT,scale = std_MKT, size= T))
@@ -249,3 +248,7 @@ CAPM_IV_Simulation(mean_MKT=0.00028, std_MKT=0.01155, mean_beta=0.14539, \
                     std_beta=0.20392, mean_res_sig=0.01614, std_res_sig=0.01390, \
                     N=100, T=10, t=3, Repetitions=2)
 
+# It takes about 30 min to finish one repetition/simulation
+CAPM_IV_Simulation(mean_MKT=0.00023, std_MKT=0.00966, mean_beta=0.95, \
+                    std_beta=0.42, mean_res_sig=0.00233, std_res_sig=0.01499, \
+                    N=2000, T=57, t=3, Repetitions=1)
