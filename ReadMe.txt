@@ -80,7 +80,8 @@ CS Factor Model I:
  R_(i,t)- R_(f,t)=〖a_i+ β〗_(i,1) R_(MKT,t)+β_(i,2) R_(MC,t)+β_(i,3) R_(PE,t)+β_(i,4) R_(OP,t)+β_(i,5) R_(INV,t)+ε_(i,t)
 
 -The insight here is that the CS factors are constructed from the same portfolios (3 factors * 2*3 double sorts, a total of 18 double-sorted portfoliots)
-that are used to produce TS factors. As a result, the CS factor models can be compared with TS factor model in a "fair" way
+that are used to produce TS factors. As a result, the CS factor models can be compared with TS factor model in an apple-to-apple case
+
 -The evaluation metrics that this study adopted are a bunch of "Alpha Test" and the different measures of the goodness of fit.
 
  ***The regression section is completely conducted on Python. As the Python_final file summarises 
