@@ -1,19 +1,15 @@
 Empirical Asset Pricing with Individual Assets on the JSE: Betas Versus characteristics
 
 ####Project Description####
-
-Purpose: The study adopts the instrumental variables (IV) and Shanken’s (1992) bias-adjusted estimator to mitigate the inherent errors-in-variables 
-bias in Fama-MacBeth (FM, 1972) regression while allowing the use of individual stocks as test assets to avoid the shortcomings of using portfolios. Further, this study compares the explanatory power of cross-sectional (CS) factors and time-series (TS) factors on asset average returns under the Carhart4-factor model.
+Purpose: The study adopts the instrumental variables (IV) and Shanken’s (1992) bias-adjusted estimator to mitigate the inherent errors-in-variables bias in Fama-MacBeth (FM, 1972) regression while allowing the use of individual stocks as test assets to avoid the shortcomings of using portfolios. Further, this study compares the explanatory power of cross-sectional (CS) factors and time-series (TS) factors on asset average returns under the Carhart4-factor model.
  
-Context: Portfolios have been widely used as test assets to ease the EIV bias in a two-stage regression. When stocks are sorted into portfolios based on certain characteristics, a strong factor structure is imparted, which may bias regression-based approaches to identifying factors that are actually unrewarded. Additionally, prespecified characteristics may be better proxies for true factor loadings since estimated betas contain measurement errors,
-and slope coefficients on characteristics may reflect the underlying factor premiums.
+Context: Portfolios have been widely used as test assets to ease the EIV bias in a two-stage regression. When stocks are sorted into portfolios based on certain characteristics, a strong factor structure is imparted, which may bias regression-based approaches to identifying factors that are actually unrewarded. Additionally, prespecified characteristics may be better proxies for true factor loadings since estimated betas contain measurement errors, and slope coefficients on characteristics may reflect the underlying factor premiums.
  
-Methods: The study adopts two ways to attenuate the EIV bias: 1) The FM-OLS procedure is revised by using the IV estimator, in which the core is to estimate explanatory and instrumental betas from a disjoint data sample, so that measurement errors are not cross-sectionally correlated;
-2) The asymptotic EIV-bias-corrected estimator of Shanken (1992) is employed under the Black et al. (1972) regression.
+Methods: The study adopts two ways to attenuate the EIV bias: 1) The FM-OLS procedure is revised by using the IV estimator, in which the core is to estimate explanatory and instrumental betas from a disjoint data sample, so that measurement errors are not cross-sectionally correlated; 2) The asymptotic EIV-bias-corrected estimator of Shanken (1992) is employed under the Black et al. (1972) regression.
  
 Results: In small sample simulations, Shanken's estimator consistently delivers consistent ex-post risk premium estimates, while FM-IV failed to mitigate EIV bias due to serial correlation among the measurement errors of overlapping beta estimates. As a result of empirical asset pricing tests, factors like market, size, value and momentum under the CAPM, the Fama-French 3- and Carhart 4-factor models are significantly priced on the cross-section, while the slope coefficients of their matching characteristics are also statistically significant. It is also shown by using fixed effects estimation that the significance of these characteristics is not caused by their correlation with omitted and potentially unobserved firm-specific factors.  Moreover, a comparison of TS and CS factors under the Carhart4-factor model shows that time-varying characteristics are better proxies for true factor loadings, while their slope coefficients (CS factors) as optimized by the CSR OLS regression provide a better description of cross-sectional average returns than TS factors that are arbitrarily constructed.
  
-Key Words: Factor Loadings, Characteristics, Errors-in-Variables Bias, Omitted Variables Problem, Instrumental Variables, Shanken’s Estimator 
+Key Words: Factor Loadings, Characteristics, Errors-in-Variables Bias, Omitted Variables Problem, Instrumental Variables, Shanken’s Estimator 
 
 ####Data Sorting Section####
 Data Description
