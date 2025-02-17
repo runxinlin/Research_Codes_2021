@@ -13,17 +13,7 @@ Key Words: Factor Loadings, Characteristics, Errors-in-Variables Bias, Omitted V
 
 ####Data Sorting Section####
 Data Description
-The sample period used in this study spans from Jan 2000 to Dec 2019 (240 months).
-A total of 819 distinct stocks entered the sample at different points in time during 
-this sample period and the sample comprises 378 stocks per year on average. 
-Daily data of stock price, market cap, market return, book-to-market ratio, 
-price-to-earnings ratio, operating profitability and change of total asset for 
-listed companies on the JSE are obtained from the Bloomberg terminal at Wits Lab, 
-while the risk-free is collected from the South African Reserve Bank. The 91-day 
-Treasury-bill (T-bill) return rate was obtained by the South African Reserve Bank and 
-used as a proxy for the risk-free rate. Because the 91-day T-bill's return was an annualized 
-return, it is geometrically divided into daily returns. In addition, J203T was obtained from
-the Bloomberg terminal and used to represent the return of the benchmark market. 
+The sample period used in this study spans from Jan 2000 to Dec 2019 (240 months). A total of 819 distinct stocks entered the sample at different points in time during this sample period and the sample comprises 378 stocks per year on average. Daily data of stock price, market cap, market return, book-to-market ratio, price-to-earnings ratio, operating profitability and change of total asset for listed companies on the JSE are obtained from the Bloomberg terminal at Wits Lab, while the risk-free is collected from the South African Reserve Bank. The 91-day Treasury-bill (T-bill) return rate was obtained by the South African Reserve Bank and used as a proxy for the risk-free rate. Because the 91-day T-bill's return was an annualized return, it is geometrically divided into daily returns. In addition, J203T was obtained from the Bloomberg terminal and used to represent the return of the benchmark market. 
 
 ***The procedure of data sorting and portfolios construction is done on R.
 Portfolios include Market, SMB, HML, RMW and CMA factor realizations.
